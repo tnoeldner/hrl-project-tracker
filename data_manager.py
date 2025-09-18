@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, text
 from datetime import datetime
 
 # --- Database Connection ---
+# This safely reads the connection string from Streamlit's Secrets Management.
 DB_CONNECTION_STRING = st.secrets["db_connection_string"]
 engine = create_engine(DB_CONNECTION_STRING)
 
@@ -19,18 +20,12 @@ def load_table(table_name):
             df = pd.read_sql_query(text(f"SELECT * FROM {table_name}"), conn)
         
         if table_name == 'tasks':
-            # This function correctly handles dates saved as 'YYYY-MM-DD (DayName)' or other formats
-            def robust_date_parse(date_col):
-                # Take only the date part of the string, ignoring "(DayName)" or other text
-                date_str_series = date_col.astype(str).str.split(' ').str[0]
-                # Convert the clean date string to a proper datetime object
-                return pd.to_datetime(date_str_series, errors='coerce')
-
-            # Convert date columns after loading from the database
+            # Use pandas' powerful to_datetime, coercing any errors to NaT (Not a Time).
+            # This is the most reliable method for mixed-format date columns.
             if 'START' in df.columns:
-                df['START'] = robust_date_parse(df['START'])
+                df['START'] = pd.to_datetime(df['START'], errors='coerce')
             if 'END' in df.columns:
-                df['END'] = robust_date_parse(df['END'])
+                df['END'] = pd.to_datetime(df['END'], errors='coerce')
             
             # Handle the PROGRESS column, defaulting blank values
             if 'PROGRESS' in df.columns:
@@ -49,7 +44,6 @@ def save_table(df, table_name):
     The official function to save any DataFrame to a table, replacing it.
     It correctly formats dates for the 'tasks' table before saving.
     """
-
     try:
         with engine.connect() as conn:
             df_to_save = df.copy()
