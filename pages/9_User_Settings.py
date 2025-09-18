@@ -9,6 +9,14 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
 # --------------------------
 
 # --- FUNCTIONS ---
+def load_users():
+    """Loads the main user data from the JSON file."""
+    try:
+        with open('users.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
 def load_user_settings():
     """Loads notification settings from the JSON file."""
     try:
@@ -27,6 +35,7 @@ st.set_page_config(page_title="User Settings", layout="wide")
 st.title("⚙️ User Settings")
 
 user_email = st.session_state.logged_in_user
+user_role = st.session_state.user_data.get('role')
 settings = load_user_settings()
 
 # --- Current User's Settings ---
@@ -50,3 +59,33 @@ if st.button("Save My Settings"):
     settings[user_email]['frequency'] = new_frequency
     save_user_settings(settings)
     st.success("Your notification settings have been saved!")
+    
+st.markdown("---")
+
+# --- Administrator Section ---
+if user_role == 'admin':
+    st.subheader("👑 Administrator Settings")
+    st.write("As an admin, you can view and edit the notification settings for any user.")
+    
+    all_users = load_users()
+    all_user_emails = sorted(list(all_users.keys()))
+    
+    selected_user_for_edit = st.selectbox("Select a User to Edit", options=all_user_emails)
+    
+    if selected_user_for_edit:
+        user_current_freq = settings.get(selected_user_for_edit, {}).get('frequency', 'Never')
+        user_current_index = frequency_options.index(user_current_freq)
+        
+        new_user_freq = st.selectbox(
+            f"Email Frequency for {selected_user_for_edit}",
+            options=frequency_options,
+            index=user_current_index,
+            key="admin_freq_selector"
+        )
+        
+        if st.button("Save This User's Settings"):
+            if selected_user_for_edit not in settings:
+                settings[selected_user_for_edit] = {}
+            settings[selected_user_for_edit]['frequency'] = new_user_freq
+            save_user_settings(settings)
+            st.success(f"Settings for {selected_user_for_edit} have been updated!")
