@@ -14,11 +14,20 @@ def load_table(table_name):
     try:
         with engine.connect() as conn:
             df = pd.read_sql_query(text(f"SELECT * FROM {table_name}"), conn)
-        # Convert date columns if they exist in the loaded table
+        
+        # This function correctly handles dates saved as 'YYYY-MM-DD (DayName)'
+        def robust_date_parse(date_col):
+            # Take only the date part of the string, ignoring "(DayName)" or other text
+            date_str_series = date_col.astype(str).str.split(' ').str[0]
+            # Convert the clean date string to a proper datetime object
+            return pd.to_datetime(date_str_series, errors='coerce')
+
+        # Convert date columns after loading from the database
         if 'START' in df.columns:
-            df['START'] = pd.to_datetime(df['START'])
+            df['START'] = robust_date_parse(df['START'])
         if 'END' in df.columns:
-            df['END'] = pd.to_datetime(df['END'])
+            df['END'] = robust_date_parse(df['END'])
+            
         return df
     except Exception as e:
         st.error(f"Failed to load table '{table_name}'. Error: {e}")
@@ -28,19 +37,19 @@ def save_table(df, table_name):
     """Generic function to save a DataFrame to a table, replacing it."""
     try:
         with engine.connect() as conn:
+            df_to_save = df.copy()
             # For tasks, format dates before saving
             if table_name == 'tasks':
-                df['START'] = pd.to_datetime(df['START']).dt.strftime('%Y-%m-%d (%A)')
-                df['END'] = pd.to_datetime(df['END']).dt.strftime('%Y-%m-%d (%A)')
+                df_to_save['START'] = pd.to_datetime(df_to_save['START']).dt.strftime('%Y-%m-%d (%A)')
+                df_to_save['END'] = pd.to_datetime(df_to_save['END']).dt.strftime('%Y-%m-%d (%A)')
             
-            df.to_sql(table_name, conn, if_exists='replace', index=False)
+            df_to_save.to_sql(table_name, conn, if_exists='replace', index=False)
         return True
     except Exception as e:
         st.error(f"Error saving table '{table_name}': {e}")
         return False
 
-# --- TASK-SPECIFIC FUNCTIONS (for logging) ---
+# This is a wrapper function for backward compatibility with pages that call it.
 def save_and_log_changes(original_df, updated_df):
-    """Compares, logs changes, and saves updated tasks."""
-    # This can be expanded later to re-implement detailed logging
+    """A placeholder that simply saves the data for now."""
     return save_table(updated_df, 'tasks')
