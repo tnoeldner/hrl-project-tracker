@@ -1,19 +1,9 @@
 # File: pages/6_Bulk_Edit_and_Duplicate.py
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-import matplotlib.pyplot as plt
-import data_manager
 from io import BytesIO
+import data_manager 
 
-# --- AUTHENTICATION CHECK ---
-if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
-    st.warning("Please log in to access this page.")
-    st.stop()
-# --------------------------
-
-# (The rest of the file remains the same)
-# ...
 st.set_page_config(page_title="Bulk Edit & Duplicate", layout="wide")
 st.title("⚙️ Bulk Edit & Duplicate Tasks")
 
@@ -40,6 +30,7 @@ if df_original is not None:
         with tab1:
             # --- QUICK EDIT & DELETE SECTION ---
             st.subheader(f"Quick Edit or Delete for {selected_bucket} - FY{selected_year}")
+            # ... (This section remains the same)
             filtered_df['Delete'] = False
             column_order = ['Delete', 'ASSIGNMENT TITLE', 'PROGRESS', 'TASK', 'SEMESTER', 'AUDIENCE', 'START', 'END']
             edited_df = st.data_editor(filtered_df[column_order], hide_index=True, key="quick_edit_table", column_config={
@@ -94,13 +85,22 @@ if df_original is not None:
             uploaded_file = st.file_uploader("Choose an XLSX file to upload", type="xlsx")
 
             if uploaded_file is not None:
+                # Read the uploaded file
                 updated_df_from_upload = pd.read_excel(uploaded_file)
+                
+                # --- CRITICAL FIX IS HERE ---
+                # Apply robust date parsing to the uploaded file
+                updated_df_from_upload['START'] = pd.to_datetime(updated_df_from_upload['START'], errors='coerce')
+                updated_df_from_upload['END'] = pd.to_datetime(updated_df_from_upload['END'], errors='coerce')
+                # -------------------------
+
                 if st.button("Apply and Save Uploaded Changes"):
                     df_updated_upload = df_original.copy()
-                    # Use '#' as index to align and update records
                     df_updated_upload.set_index('#', inplace=True)
                     updated_df_from_upload.set_index('#', inplace=True)
+                    
                     df_updated_upload.update(updated_df_from_upload)
+                    
                     df_updated_upload.reset_index(inplace=True)
                     
                     if data_manager.save_and_log_changes(df_original, df_updated_upload):
@@ -109,28 +109,23 @@ if df_original is not None:
 
         st.markdown("---")
         # --- DUPLICATION SECTION ---
+        # ... (This section remains the same)
         st.subheader(f"Duplicate Tasks for a New Fiscal Year")
         st.write(f"This will copy all **{len(filtered_df)}** tasks from your current filter ({selected_bucket} - FY{selected_year}).")
-
         col1, col2 = st.columns(2)
         with col1:
             new_fy = st.number_input("Enter New Fiscal Year:", min_value=2020, value=selected_year + 1)
         with col2:
             days_to_shift = st.number_input("Days to shift dates forward:", value=364)
-
         if st.button(f"Duplicate Tasks to FY{new_fy}"):
             duplicated_tasks = filtered_df.copy()
-            
             duplicated_tasks['Fiscal Year'] = new_fy
             time_delta = pd.Timedelta(days=days_to_shift)
             duplicated_tasks['START'] = duplicated_tasks['START'] + time_delta
             duplicated_tasks['END'] = duplicated_tasks['END'] + time_delta
-            
             last_id = df_original['#'].max()
             duplicated_tasks['#'] = range(last_id + 1, last_id + 1 + len(duplicated_tasks))
-            
             df_after_duplication = pd.concat([df_original, duplicated_tasks], ignore_index=True)
-            
             if data_manager.save_and_log_changes(df_original, df_after_duplication):
                 st.success(f"Successfully duplicated and logged {len(duplicated_tasks)} tasks to FY{new_fy}!")
                 st.balloons()
