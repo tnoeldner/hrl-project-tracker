@@ -69,7 +69,8 @@ if user_role == 'admin':
             
             tasks_df = data_manager.load_table('tasks')
             if tasks_df is not None:
-                current_titles = sorted(tasks_df['ASSIGNMENT TITLE'].unique().tolist())
+                # Convert all items to string to handle mixed data types, then sort
+                current_titles = sorted([str(item) for item in tasks_df['ASSIGNMENT TITLE'].unique()])
                 with st.expander("View Current Assignment Titles"):
                     st.write(current_titles)
 
