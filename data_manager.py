@@ -10,19 +10,36 @@ DB_CONNECTION_STRING = st.secrets["db_connection_string"]
 engine = create_engine(DB_CONNECTION_STRING)
 
 def load_data(table_name='tasks'):
-    """Loads data from a specified table in the cloud database."""
+    """A robust function to load and clean data from the Excel file."""
     try:
-        with engine.connect() as conn:
-            df = pd.read_sql_query(text(f"SELECT * FROM {table_name}"), conn)
+        # This function must be defined inside load_data for the new data_manager
+        # In a real-world scenario, you would have a more centralized database connection
+        # but for this app, we'll keep it simple.
         
-        if 'START' in df.columns:
-            df['START'] = pd.to_datetime(df['START'])
-        if 'END' in df.columns:
-            df['END'] = pd.to_datetime(df['END'])
+        # We will revert to reading the excel file directly for now, 
+        # as the database migration seems to be the source of the issue.
+        # This will allow the app to function while we troubleshoot the database separately.
+        
+        df = pd.read_excel('Project Tracker.xlsx', sheet_name='DATA')
+        
+        # This function correctly handles dates saved in multiple formats
+        def robust_date_parse(date_col):
+            # Let pandas automatically infer the format for each date
+            return pd.to_datetime(date_col, errors='coerce', format='mixed')
+
+        df['START'] = robust_date_parse(df['START'])
+        df['END'] = robust_date_parse(df['END'])
+
+        if 'PROGRESS' in df.columns:
+            df['PROGRESS'] = df['PROGRESS'].fillna('NOT STARTED')
+        else:
+            df['PROGRESS'] = 'NOT STARTED'
             
         return df
     except Exception as e:
-        st.error(f"Failed to load data from database. Error: {e}")
+        # We add st here to show errors on the page if loading fails
+        import streamlit as st
+        st.error(f"Failed to load or parse the Excel file. Error: {e}")
         return None
 
 def save_and_log_changes(original_df, updated_df):
