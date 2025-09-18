@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
 import data_manager
+import plotly.express as px
 
 # --- AUTHENTICATION CHECK ---
 if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
