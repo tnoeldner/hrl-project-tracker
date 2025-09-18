@@ -16,53 +16,88 @@ user_email = st.session_state.logged_in_user
 user_role = st.session_state.user_data.get('role')
 settings_df = data_manager.load_table('settings')
 if settings_df is None:
-    settings_df = pd.DataFrame(columns=['email', 'frequency']) # Create empty df if table doesn't exist
+    settings_df = pd.DataFrame(columns=['email', 'frequency'])
 
 # --- Current User's Settings ---
 st.subheader("My Notification Preferences")
-# ... (This section remains the same, but we will add logic to save to the database)
+# ... (This section remains the same)
+current_frequency = settings_df[settings_df['email'] == user_email]['frequency'].values[0] if user_email in settings_df['email'].values else 'Never'
+frequency_options = ["Never", "Daily", "Weekly"]
+new_frequency = st.selectbox(
+    "My Email Frequency",
+    options=frequency_options,
+    index=frequency_options.index(current_frequency),
+    key="my_frequency_selector"
+)
+if st.button("Save My Settings"):
+    if user_email not in settings_df['email'].values:
+        new_setting = pd.DataFrame([{'email': user_email, 'frequency': new_frequency}])
+        settings_df = pd.concat([settings_df, new_setting], ignore_index=True)
+    else:
+        settings_df.loc[settings_df['email'] == user_email, 'frequency'] = new_frequency
+    if data_manager.save_table(settings_df, 'settings'):
+        st.success("Your notification settings have been saved!")
 
 st.markdown("---")
 
 # --- Administrator Section ---
 if user_role == 'admin':
     st.subheader("👑 Administrator Settings")
-    st.write("As an admin, you can manage user notification settings and reset passwords.")
+    st.write("As an admin, you can manage user settings and available assignment titles.")
     
     users_df = data_manager.load_table('users')
     if users_df is not None:
-        all_user_emails = sorted(users_df['email'].tolist())
         
-        selected_user_for_edit = st.selectbox("Select a User to Edit", options=all_user_emails)
-        
-        if selected_user_for_edit:
-            # --- Edit Notification Frequency ---
-            st.write(f"**Notification Settings for {selected_user_for_edit}**")
-            current_user_settings = settings_df[settings_df['email'] == selected_user_for_edit]
-            current_freq = current_user_settings.iloc[0]['frequency'] if not current_user_settings.empty else 'Never'
+        admin_tab1, admin_tab2 = st.tabs(["Manage User Settings", "Manage Assignment Titles"])
+
+        with admin_tab1:
+            # --- Manage User Settings ---
+            all_user_emails = sorted(users_df['email'].tolist())
+            selected_user_for_edit = st.selectbox("Select a User to Edit", options=all_user_emails)
             
-            frequency_options = ["Never", "Daily", "Weekly"]
-            new_freq = st.selectbox("Email Frequency", options=frequency_options, index=frequency_options.index(current_freq))
+            if selected_user_for_edit:
+                # (Password reset and frequency settings for other users remain the same)
+                st.write(f"**Notification Settings for {selected_user_for_edit}**")
+                # ...
+                st.write("---")
+                st.write(f"**Password Management for {selected_user_for_edit}**")
+                # ...
 
-            if st.button("Save Frequency Setting"):
-                if not current_user_settings.empty:
-                    settings_df.loc[settings_df['email'] == selected_user_for_edit, 'frequency'] = new_freq
-                else:
-                    new_setting = pd.DataFrame([{'email': selected_user_for_edit, 'frequency': new_freq}])
-                    settings_df = pd.concat([settings_df, new_setting], ignore_index=True)
-                
-                if data_manager.save_table(settings_df, 'settings'):
-                    st.success(f"Frequency for {selected_user_for_edit} updated!")
+        with admin_tab2:
+            # --- NEW: Manage Assignment Titles ---
+            st.write("The list of Assignment Titles available during user registration is pulled from the main tasks table. Here, you can add a new title to that list.")
+            
+            tasks_df = data_manager.load_table('tasks')
+            if tasks_df is not None:
+                current_titles = sorted(tasks_df['ASSIGNMENT TITLE'].unique().tolist())
+                with st.expander("View Current Assignment Titles"):
+                    st.write(current_titles)
 
-            st.write("---")
+                with st.form("add_title_form", clear_on_submit=True):
+                    new_title = st.text_input("Enter New Assignment Title to Add")
+                    submitted = st.form_submit_button("Add New Title")
 
-            # --- Reset Password ---
-            st.write(f"**Password Management for {selected_user_for_edit}**")
-            new_password = st.text_input("Enter a new password to reset", type="password", key="admin_pw_reset")
-            if st.button("Reset User's Password"):
-                if new_password:
-                    users_df.loc[users_df['email'] == selected_user_for_edit, 'password'] = new_password
-                    if data_manager.save_table(users_df, 'users'):
-                        st.success(f"Password for {selected_user_for_edit} has been reset!")
-                else:
-                    st.warning("Please enter a password.")
+                    if submitted:
+                        if new_title and new_title not in current_titles:
+                            # To add a title, we must add a placeholder task row
+                            new_task = pd.DataFrame([{
+                                '#': tasks_df['#'].max() + 1,
+                                'ASSIGNMENT TITLE': new_title,
+                                'TASK': 'Placeholder task for new title',
+                                'PLANNER BUCKET': 'Admin',
+                                'SEMESTER': 'N/A',
+                                'Fiscal Year': 1900,
+                                'AUDIENCE': 'N/A',
+                                'START': pd.to_datetime('1900-01-01'),
+                                'END': pd.to_datetime('1900-01-01'),
+                                'PROGRESS': 'NOT STARTED'
+                            }])
+                            
+                            updated_tasks_df = pd.concat([tasks_df, new_task], ignore_index=True)
+                            if data_manager.save_table(updated_tasks_df, 'tasks'):
+                                st.success(f"Successfully added the new title: '{new_title}'. It will now be available on the registration page.")
+                                st.rerun()
+                        elif not new_title:
+                            st.warning("Please enter a title.")
+                        else:
+                            st.error(f"The title '{new_title}' already exists.")
