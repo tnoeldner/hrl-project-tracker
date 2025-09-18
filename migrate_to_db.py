@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 # --- IMPORTANT ---
 # Paste the connection string you copied from Supabase here.
 # Make sure to replace [YOUR-PASSWORD] with your actual database password.
-CONNECTION_STRING = "postgresql://postgres:9G%ep?Qi-nihbYx@db.eypaunoseudvofjcanmn.supabase.co:5432/postgres"
+CONNECTION_STRING = "postgresql://postgres.eypaunoseudvofjcanmn:9G%ep?Qi-nihbYx@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
 
 def migrate():
     """
