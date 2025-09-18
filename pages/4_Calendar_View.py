@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
 import data_manager
+from streamlit_calendar import calendar
 
 # --- AUTHENTICATION CHECK ---
 if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
