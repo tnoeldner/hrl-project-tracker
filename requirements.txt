@@ -7,3 +7,4 @@ streamlit_calendar
 psycopg2-binary
 sqlalchemy
 matplotlib
+xlsxwriter
