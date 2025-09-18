@@ -1,0 +1,21 @@
+{
+    "admin@yourdomain.com": {
+        "password": "changeme",
+        "first_name": "Admin",
+        "last_name": "User",
+        "assignment_title": "Admin"
+    },
+    "troy.noeldner@ndus.edu": {
+        "password": "Housing",
+        "first_name": "Troy",
+        "last_name": "Noeldner",
+        "assignment_title": "Director, Housing & Res Life",
+        "role": "admin"
+    },
+    "hyungwoo.jo@ndus.edu": {
+        "password": "changeme",
+        "first_name": "Hyungwoo",
+        "last_name": "Jo",
+        "assignment_title": "Director, Housing & Res Life"
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "admin@yourdomain.com": {
+        "frequency": "Daily"
+    },
+    "viewer@yourdomain.com": {
+        "frequency": "Weekly"
+    },
+    "troy.noeldner@ndus.edu": {
+        "frequency": "Weekly"
+    },
+    "hyungwoo.jo@ndus.edu": {
+        "frequency": "Weekly"
+    }
+}

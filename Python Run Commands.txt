@@ -1,0 +1,3 @@
+Python Run Commands
+
+python -m streamlit run Main.py
