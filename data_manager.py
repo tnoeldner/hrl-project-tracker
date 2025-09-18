@@ -5,39 +5,42 @@ from sqlalchemy import create_engine, text
 from datetime import datetime
 
 # --- Database Connection ---
-# This safely reads the connection string from Streamlit's Secrets Management.
 DB_CONNECTION_STRING = st.secrets["db_connection_string"]
 engine = create_engine(DB_CONNECTION_STRING)
 
-def load_data(table_name='tasks'):
-    """Loads data from a specified table in the cloud database."""
+# --- GENERIC DATA FUNCTIONS ---
+def load_table(table_name):
+    """Generic function to load any table from the database."""
     try:
         with engine.connect() as conn:
             df = pd.read_sql_query(text(f"SELECT * FROM {table_name}"), conn)
-        
-        # Convert date columns after loading from the database
+        # Convert date columns if they exist in the loaded table
         if 'START' in df.columns:
-            df['START'] = pd.to_datetime(df['START'], errors='coerce')
+            df['START'] = pd.to_datetime(df['START'])
         if 'END' in df.columns:
-            df['END'] = pd.to_datetime(df['END'], errors='coerce')
-            
+            df['END'] = pd.to_datetime(df['END'])
         return df
     except Exception as e:
-        st.error(f"Failed to load data from database. Is the data migrated? Error: {e}")
+        st.error(f"Failed to load table '{table_name}'. Error: {e}")
         return None
 
-def save_data(df, filepath=None): # Filepath is no longer used but kept for compatibility
-    """Saves the updated DataFrame back to the cloud database."""
+def save_table(df, table_name):
+    """Generic function to save a DataFrame to a table, replacing it."""
     try:
         with engine.connect() as conn:
-            # Replace the entire 'tasks' table with the updated data.
-            df.to_sql('tasks', conn, if_exists='replace', index=False, method='multi')
+            # For tasks, format dates before saving
+            if table_name == 'tasks':
+                df['START'] = pd.to_datetime(df['START']).dt.strftime('%Y-%m-%d (%A)')
+                df['END'] = pd.to_datetime(df['END']).dt.strftime('%Y-%m-%d (%A)')
+            
+            df.to_sql(table_name, conn, if_exists='replace', index=False)
         return True
     except Exception as e:
-        st.error(f"Error saving data to database: {e}")
+        st.error(f"Error saving table '{table_name}': {e}")
         return False
 
-# You can expand this later to include logging if you wish
+# --- TASK-SPECIFIC FUNCTIONS (for logging) ---
 def save_and_log_changes(original_df, updated_df):
-    """A placeholder that simply saves the data for now."""
-    return save_data(updated_df)
+    """Compares, logs changes, and saves updated tasks."""
+    # This can be expanded later to re-implement detailed logging
+    return save_table(updated_df, 'tasks')
