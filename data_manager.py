@@ -5,51 +5,70 @@ from sqlalchemy import create_engine, text
 from datetime import datetime
 
 # --- Database Connection ---
+# This safely reads the connection string from Streamlit's Secrets Management.
 DB_CONNECTION_STRING = st.secrets["db_connection_string"]
 engine = create_engine(DB_CONNECTION_STRING)
 
-# --- GENERIC DATA FUNCTIONS ---
+# --- THE SINGLE SOURCE OF TRUTH FOR LOADING DATA ---
 def load_table(table_name):
-    """Generic function to load any table from the database."""
+    """
+    The official function to load any table from the database.
+    It includes robust date and progress parsing for the 'tasks' table.
+    """
     try:
         with engine.connect() as conn:
             df = pd.read_sql_query(text(f"SELECT * FROM {table_name}"), conn)
         
-        # This function correctly handles dates saved as 'YYYY-MM-DD (DayName)'
-        def robust_date_parse(date_col):
-            # Take only the date part of the string, ignoring "(DayName)" or other text
-            date_str_series = date_col.astype(str).str.split(' ').str[0]
-            # Convert the clean date string to a proper datetime object
-            return pd.to_datetime(date_str_series, errors='coerce')
+        # --- Handle 'tasks' table specific columns ---
+        if table_name == 'tasks':
+            # This function correctly handles dates saved as 'YYYY-MM-DD (DayName)' or other formats
+            def robust_date_parse(date_col):
+                # Take only the date part of the string, ignoring "(DayName)" or other text
+                date_str_series = date_col.astype(str).str.split(' ').str[0]
+                # Convert the clean date string to a proper datetime object
+                return pd.to_datetime(date_str_series, errors='coerce')
 
-        # Convert date columns after loading from the database
-        if 'START' in df.columns:
-            df['START'] = robust_date_parse(df['START'])
-        if 'END' in df.columns:
-            df['END'] = robust_date_parse(df['END'])
+            # Convert date columns after loading from the database
+            if 'START' in df.columns:
+                df['START'] = robust_date_parse(df['START'])
+            if 'END' in df.columns:
+                df['END'] = robust_date_parse(df['END'])
+            
+            # Handle the PROGRESS column, defaulting blank values
+            if 'PROGRESS' in df.columns:
+                df['PROGRESS'] = df['PROGRESS'].fillna('NOT STARTED')
+            else:
+                df['PROGRESS'] = 'NOT STARTED'
             
         return df
     except Exception as e:
-        st.error(f"Failed to load table '{table_name}'. Error: {e}")
+        st.error(f"Failed to load table '{table_name}'. Is your database set up? Error: {e}")
         return None
 
+# --- THE SINGLE SOURCE OF TRUTH FOR SAVING DATA ---
 def save_table(df, table_name):
-    """Generic function to save a DataFrame to a table, replacing it."""
+    """
+    The official function to save any DataFrame to a table, replacing it.
+    It correctly formats dates for the 'tasks' table before saving.
+    """
     try:
         with engine.connect() as conn:
             df_to_save = df.copy()
-            # For tasks, format dates before saving
+            # For tasks, format dates to the consistent 'YYYY-MM-DD (DayName)' format before saving
             if table_name == 'tasks':
                 df_to_save['START'] = pd.to_datetime(df_to_save['START']).dt.strftime('%Y-%m-%d (%A)')
                 df_to_save['END'] = pd.to_datetime(df_to_save['END']).dt.strftime('%Y-%m-%d (%A)')
             
-            df_to_save.to_sql(table_name, conn, if_exists='replace', index=False)
+            df_to_save.to_sql(table_name, conn, if_exists='replace', index=False, method='multi')
         return True
     except Exception as e:
         st.error(f"Error saving table '{table_name}': {e}")
         return False
 
-# This is a wrapper function for backward compatibility with pages that call it.
+# --- Wrapper function for backward compatibility ---
 def save_and_log_changes(original_df, updated_df):
-    """A placeholder that simply saves the data for now."""
+    """
+    This is now a simple wrapper around the main save function.
+    The detailed logging logic can be re-implemented here later if needed.
+    """
     return save_table(updated_df, 'tasks')
