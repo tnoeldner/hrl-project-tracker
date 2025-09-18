@@ -1,9 +1,18 @@
 # File: pages/6_Bulk_Edit_and_Duplicate.py
 import streamlit as st
 import pandas as pd
-from io import BytesIO
-import data_manager # Use the central data manager
+from datetime import datetime
+import matplotlib.pyplot as plt
+import data_manager
 
+# --- AUTHENTICATION CHECK ---
+if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
+    st.warning("Please log in to access this page.")
+    st.stop()
+# --------------------------
+
+# (The rest of the file remains the same)
+# ...
 st.set_page_config(page_title="Bulk Edit & Duplicate", layout="wide")
 st.title("⚙️ Bulk Edit & Duplicate Tasks")
 

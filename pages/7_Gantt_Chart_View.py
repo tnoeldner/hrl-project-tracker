@@ -1,10 +1,18 @@
 # File: pages/7_Gantt_Chart_View.py
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import data_manager
 from datetime import datetime
+import matplotlib.pyplot as plt
+import data_manager
 
+# --- AUTHENTICATION CHECK ---
+if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
+    st.warning("Please log in to access this page.")
+    st.stop()
+# --------------------------
+
+# (The rest of the file remains the same)
+# ...
 st.set_page_config(page_title="Gantt Chart", layout="wide")
 st.title("📊 Interactive Gantt Chart View")
 

@@ -1,8 +1,17 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
+import matplotlib.pyplot as plt
 import data_manager
 
-st.set_page_config(page_title="Add Task", layout="wide")
+# --- AUTHENTICATION CHECK ---
+if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
+    st.warning("Please log in to access this page.")
+    st.stop()
+# --------------------------
+
+# (The rest of the file remains the same)
+# ...st.set_page_config(page_title="Add Task", layout="wide")
 st.title("📝 Add a New Task")
 
 df_original = data_manager.load_data()

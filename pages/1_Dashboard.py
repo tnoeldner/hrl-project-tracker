@@ -3,9 +3,16 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
-from fpdf import FPDF
 import data_manager
 
+# --- AUTHENTICATION CHECK ---
+if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
+    st.warning("Please log in to access this page.")
+    st.stop()
+# --------------------------
+
+# (The rest of the file remains the same)
+# ...
 def create_pdf_report(metrics, overdue_df, unscheduled_df):
     """Generates a PDF report from the dashboard data."""
     pdf = FPDF()

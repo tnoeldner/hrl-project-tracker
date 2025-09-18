@@ -1,9 +1,18 @@
 # File: pages/9_User_Settings.py
 import streamlit as st
-import json
+import pandas as pd
+from datetime import datetime
+import matplotlib.pyplot as plt
 import data_manager
 
-def load_users():
+# --- AUTHENTICATION CHECK ---
+if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
+    st.warning("Please log in to access this page.")
+    st.stop()
+# --------------------------
+
+# (The rest of the file remains the same)
+# ...def load_users():
     """Loads the main user data from the JSON file."""
     try:
         with open('users.json', 'r') as f:
