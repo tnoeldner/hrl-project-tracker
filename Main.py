@@ -1,20 +1,28 @@
 # File: Main.py
 import streamlit as st
 import pandas as pd
-import data_manager
+import data_manager # Use the central data manager
 
-def check_login(username, password, users_df):
-    """Checks credentials against the users DataFrame."""
+# --- AUTHENTICATION FUNCTIONS (using the database) ---
+
+def check_login(username, password):
+    """Checks credentials against the users table in the database."""
+    users_df = data_manager.load_table('users')
+    if users_df is None:
+        return None
+    
     user_record = users_df[users_df['email'] == username]
     if not user_record.empty and user_record.iloc[0]['password'] == password:
         return user_record.iloc[0].to_dict()
     return None
 
+# --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="HRL Project Tracker", layout="wide")
 
 # Load project data for the registration dropdown
 tasks_df = data_manager.load_table('tasks')
 
+# --- LOGIN / REGISTRATION LOGIC ---
 if 'logged_in_user' not in st.session_state:
     st.session_state.logged_in_user = None
 
@@ -28,15 +36,13 @@ if st.session_state.logged_in_user is None:
             password = st.text_input("Password", type="password")
             submitted = st.form_submit_button("Login")
             if submitted:
-                users_df = data_manager.load_table('users')
-                if users_df is not None:
-                    user_data = check_login(username, password, users_df)
-                    if user_data:
-                        st.session_state.logged_in_user = username
-                        st.session_state.user_data = user_data
-                        st.rerun()
-                    else:
-                        st.error("Incorrect email or password")
+                user_data = check_login(username, password)
+                if user_data:
+                    st.session_state.logged_in_user = username
+                    st.session_state.user_data = user_data
+                    st.rerun()
+                else:
+                    st.error("Incorrect email or password")
     
     with register_tab:
         if tasks_df is not None:
@@ -67,6 +73,7 @@ if st.session_state.logged_in_user is None:
             st.warning("Could not load Project Tracker data. Registration is temporarily unavailable.")
 
 else:
+    # --- MAIN APP UI (if logged in) ---
     user_data = st.session_state.user_data
     st.sidebar.success(f"Logged in as: {user_data['first_name']} {user_data['last_name']}")
     
