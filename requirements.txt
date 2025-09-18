@@ -5,3 +5,5 @@ fpdf2
 openpyxl
 streamlit_calendar
 psycopg2-binary
+sqlalchemy
+matplotlib
