@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
+from datetime import datetime
 
 # --- Database Connection ---
 # This safely reads the connection string from Streamlit's Secrets Management.
@@ -19,14 +20,20 @@ def load_table(table_name):
         
         # This logic applies only to the 'tasks' table
         if table_name == 'tasks':
-            # Use pandas' powerful to_datetime, coercing any errors to NaT (Not a Time).
-            # This is the most reliable method for reading dates from any source.
+            # This function correctly handles dates saved as 'YYYY-MM-DD (DayName)' or any other format
+            def robust_date_parse(date_col):
+                # Take only the date part of the string, ignoring "(DayName)" or other text
+                date_str_series = date_col.astype(str).str.split(' ').str[0]
+                # Convert the clean date string to a proper datetime object, coercing errors
+                return pd.to_datetime(date_str_series, errors='coerce')
+
+            # Apply the robust parsing to the date columns
             if 'START' in df.columns:
-                df['START'] = pd.to_datetime(df['START'], errors='coerce')
+                df['START'] = robust_date_parse(df['START'])
             if 'END' in df.columns:
-                df['END'] = pd.to_datetime(df['END'], errors='coerce')
+                df['END'] = robust_date_parse(df['END'])
             
-            # Handle the PROGRESS column, defaulting blank values
+            # Handle the PROGRESS column, defaulting any blank values to 'NOT STARTED'
             if 'PROGRESS' in df.columns:
                 df['PROGRESS'] = df['PROGRESS'].fillna('NOT STARTED')
             else:
