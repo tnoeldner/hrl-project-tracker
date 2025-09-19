@@ -2,7 +2,6 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
-from datetime import datetime
 
 # --- Database Connection ---
 # This safely reads the connection string from Streamlit's Secrets Management.
