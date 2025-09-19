@@ -4,6 +4,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 
 # --- Database Connection ---
+# This safely reads the connection string from Streamlit's Secrets Management.
 DB_CONNECTION_STRING = st.secrets["db_connection_string"]
 engine = create_engine(DB_CONNECTION_STRING)
 
@@ -16,12 +17,16 @@ def load_table(table_name):
         with engine.connect() as conn:
             df = pd.read_sql_query(text(f"SELECT * FROM {table_name}"), conn)
         
+        # This logic applies only to the 'tasks' table
         if table_name == 'tasks':
+            # Use pandas' powerful to_datetime, coercing any errors to NaT (Not a Time).
+            # This is the most reliable method for reading dates from any source.
             if 'START' in df.columns:
                 df['START'] = pd.to_datetime(df['START'], errors='coerce')
             if 'END' in df.columns:
                 df['END'] = pd.to_datetime(df['END'], errors='coerce')
             
+            # Handle the PROGRESS column, defaulting blank values
             if 'PROGRESS' in df.columns:
                 df['PROGRESS'] = df['PROGRESS'].fillna('NOT STARTED')
             else:
@@ -40,7 +45,8 @@ def save_table(df, table_name):
     """
     try:
         with engine.connect() as conn:
-            # We do not format dates. We save the proper datetime objects.
+            # We no longer apply string formatting here. We save the proper datetime objects.
+            # The database will handle storing them correctly.
             df.to_sql(table_name, conn, if_exists='replace', index=False, method='multi')
         return True
     except Exception as e:
@@ -52,4 +58,5 @@ def save_and_log_changes(original_df, updated_df):
     """
     This is a simple wrapper around the main save function.
     """
+    # The detailed changelog logic can be re-implemented here later if desired.
     return save_table(updated_df, 'tasks')
