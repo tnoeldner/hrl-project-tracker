@@ -16,7 +16,7 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
 st.set_page_config(page_title="Timeline View", layout="wide")
 st.title("🗓️ Timeline View")
 
-df = data_manager.load_data()
+df = data_manager.load_table('tasks')
 
 if df is not None:
     today = pd.to_datetime("today").normalize()

@@ -7,7 +7,7 @@ import data_manager
 st.set_page_config(page_title="Bulk Edit & Duplicate", layout="wide")
 st.title("⚙️ Bulk Edit & Duplicate Tasks")
 
-df_original = data_manager.load_data()
+df_original = data_manager.load_table('tasks')
 
 if df_original is not None:
     st.info("Select a Planner Bucket and Fiscal Year to filter the data you want to manage.")

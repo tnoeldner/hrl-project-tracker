@@ -16,7 +16,7 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
 st.set_page_config(page_title="Calendar View", layout="wide")
 st.title("📅 Calendar View")
 
-df_original = data_manager.load_data()
+df_original = data_manager.load_table('tasks')
 
 if df_original is not None:
     df_cal = df_original.fillna('')

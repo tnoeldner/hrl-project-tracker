@@ -4,9 +4,9 @@ import json
 from sqlalchemy import create_engine
 
 # --- IMPORTANT ---
-# Paste the connection string you copied from Supabase here.
+# Paste your Supabase connection string here.
 # Make sure to replace [YOUR-PASSWORD] with your actual database password.
-CONNECTION_STRING = "postgresql://postgres.eypaunoseudvofjcanmn:9G%ep?Qi-nihbYx@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+CONNECTION_STRING = "postgresql://postgres.eypaunoseudvofjcanmn:N03ldn3rPr0j3ct!@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
 
 def migrate():
     """
@@ -54,6 +54,18 @@ def migrate():
         df_changelog = pd.DataFrame(columns=['Timestamp', 'Action', 'Task ID', 'Field Changed', 'Old Value', 'New Value'])
         df_changelog.to_sql('changelog', engine, if_exists='replace', index=False)
         print("Changelog table created.")
+
+        # --- Create Comments Table ---
+        print("Creating empty comments table...")
+        df_comments = pd.DataFrame(columns=['comment_id', 'task_id', 'user_email', 'timestamp', 'comment_text'])
+        df_comments.to_sql('comments', engine, if_exists='replace', index=False)
+        print("Comments table created.")
+        
+        # --- Create Notifications Table ---
+        print("Creating empty notifications table...")
+        df_notifications = pd.DataFrame(columns=['notification_id', 'user_email', 'message', 'is_read', 'timestamp'])
+        df_notifications.to_sql('notifications', engine, if_exists='replace', index=False)
+        print("Notifications table created.")
 
         print("\nCloud migration complete!")
 

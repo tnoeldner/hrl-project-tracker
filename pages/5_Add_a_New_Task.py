@@ -14,7 +14,7 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
 # ...st.set_page_config(page_title="Add Task", layout="wide")
 st.title("📝 Add a New Task")
 
-df_original = data_manager.load_data()
+df_original = data_manager.load_table('tasks')
 
 if df_original is not None:
     with st.form("new_task_form", clear_on_submit=True):

@@ -17,7 +17,7 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
 st.set_page_config(page_title="Gantt Chart", layout="wide")
 st.title("📊 Interactive Gantt Chart View")
 
-df = data_manager.load_data()
+df = data_manager.load_table('tasks')
 
 if df is not None:
     st.info("Use the filters to set your view. You can also use your mouse to zoom and pan the chart.")

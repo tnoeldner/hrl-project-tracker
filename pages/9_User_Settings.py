@@ -20,7 +20,6 @@ if settings_df is None:
 
 # --- Current User's Settings ---
 st.subheader("My Notification Preferences")
-# ... (This section remains the same)
 current_frequency = settings_df[settings_df['email'] == user_email]['frequency'].values[0] if user_email in settings_df['email'].values else 'Never'
 frequency_options = ["Never", "Daily", "Weekly"]
 new_frequency = st.selectbox(
@@ -46,59 +45,125 @@ if user_role == 'admin':
     st.write("As an admin, you can manage user settings and available assignment titles.")
     
     users_df = data_manager.load_table('users')
-    if users_df is not None:
+    tasks_df = data_manager.load_table('tasks')
+
+    if users_df is not None and tasks_df is not None:
         
         admin_tab1, admin_tab2 = st.tabs(["Manage User Settings", "Manage Assignment Titles"])
 
         with admin_tab1:
-            # --- Manage User Settings ---
+            st.header("Edit User Details")
             all_user_emails = sorted(users_df['email'].tolist())
             selected_user_for_edit = st.selectbox("Select a User to Edit", options=all_user_emails)
-            
+
             if selected_user_for_edit:
-                # (Password reset and frequency settings for other users remain the same)
-                st.write(f"**Notification Settings for {selected_user_for_edit}**")
-                # ...
-                st.write("---")
-                st.write(f"**Password Management for {selected_user_for_edit}**")
-                # ...
+                user_data = users_df[users_df['email'] == selected_user_for_edit].iloc[0]
+                
+                with st.form("admin_edit_user_form"):
+                    st.write(f"Editing profile for: **{user_data['first_name']} {user_data['last_name']}**")
+                    
+                    # --- Edit Assignment Title ---
+                    assignment_options = sorted([str(item) for item in tasks_df['ASSIGNMENT TITLE'].unique()])
+                    current_title_index = assignment_options.index(user_data['assignment_title']) if user_data['assignment_title'] in assignment_options else 0
+                    new_assignment_title = st.selectbox("Assignment Title", options=assignment_options, index=current_title_index)
+                    
+                    # --- Reset Password ---
+                    new_password = st.text_input("Reset Password (leave blank to keep current)", type="password")
+
+                    submitted_admin_edit = st.form_submit_button("Save User Changes")
+                    if submitted_admin_edit:
+                        # Update assignment title
+                        users_df.loc[users_df['email'] == selected_user_for_edit, 'assignment_title'] = new_assignment_title
+                        # Update password if a new one was entered
+                        if new_password:
+                            users_df.loc[users_df['email'] == selected_user_for_edit, 'password'] = new_password
+                        
+                        if data_manager.save_table(users_df, 'users'):
+                            st.success(f"User details for {selected_user_for_edit} have been updated.")
+                            st.rerun()
 
         with admin_tab2:
-            # --- NEW: Manage Assignment Titles ---
-            st.write("The list of Assignment Titles available during user registration is pulled from the main tasks table. Here, you can add a new title to that list.")
-            
-            tasks_df = data_manager.load_table('tasks')
-            if tasks_df is not None:
-                # Convert all items to string to handle mixed data types, then sort
-                current_titles = sorted([str(item) for item in tasks_df['ASSIGNMENT TITLE'].unique()])
-                with st.expander("View Current Assignment Titles"):
-                    st.write(current_titles)
+            st.header("Manage Assignment Titles")
+            current_titles = sorted([str(item) for item in tasks_df['ASSIGNMENT TITLE'].unique()])
 
+            # --- Add a New Title ---
+            with st.expander("Add a New Title"):
                 with st.form("add_title_form", clear_on_submit=True):
-                    new_title = st.text_input("Enter New Assignment Title to Add")
-                    submitted = st.form_submit_button("Add New Title")
-
-                    if submitted:
-                        if new_title and new_title not in current_titles:
-                            # To add a title, we must add a placeholder task row
-                            new_task = pd.DataFrame([{
-                                '#': tasks_df['#'].max() + 1,
-                                'ASSIGNMENT TITLE': new_title,
-                                'TASK': 'Placeholder task for new title',
-                                'PLANNER BUCKET': 'Admin',
-                                'SEMESTER': 'N/A',
-                                'Fiscal Year': 1900,
-                                'AUDIENCE': 'N/A',
-                                'START': pd.to_datetime('1900-01-01'),
-                                'END': pd.to_datetime('1900-01-01'),
-                                'PROGRESS': 'NOT STARTED'
-                            }])
-                            
+                    new_title_to_add = st.text_input("Enter New Assignment Title to Add")
+                    submitted_add = st.form_submit_button("Add New Title")
+                    if submitted_add:
+                        if new_title_to_add and new_title_to_add not in current_titles:
+                            new_task = pd.DataFrame([{'#': tasks_df['#'].max() + 1, 'ASSIGNMENT TITLE': new_title_to_add, 'TASK': 'Placeholder task for new title', 'PLANNER BUCKET': 'Admin', 'SEMESTER': 'N/A', 'Fiscal Year': 1900, 'AUDIENCE': 'N/A', 'START': pd.to_datetime('1900-01-01'), 'END': pd.to_datetime('1900-01-01'), 'PROGRESS': 'NOT STARTED'}])
                             updated_tasks_df = pd.concat([tasks_df, new_task], ignore_index=True)
                             if data_manager.save_table(updated_tasks_df, 'tasks'):
-                                st.success(f"Successfully added the new title: '{new_title}'. It will now be available on the registration page.")
+                                st.success(f"Successfully added '{new_title_to_add}'.")
                                 st.rerun()
-                        elif not new_title:
-                            st.warning("Please enter a title.")
                         else:
-                            st.error(f"The title '{new_title}' already exists.")
+                            st.error(f"Title is empty or already exists.")
+            
+            # --- Edit or Delete an Existing Title ---
+            st.subheader("Edit or Delete an Existing Title")
+            title_to_manage = st.selectbox("Select an Assignment Title to Manage", options=current_titles)
+
+            if title_to_manage:
+                # --- Edit Logic ---
+                with st.expander(f"Rename '{title_to_manage}'"):
+                    with st.form("edit_title_form"):
+                        new_name = st.text_input("New Title Name", value=title_to_manage)
+                        submitted_edit = st.form_submit_button("Update Title")
+                        if submitted_edit:
+                            if new_name and new_name != title_to_manage:
+                                # Update in tasks table
+                                tasks_df['ASSIGNMENT TITLE'] = tasks_df['ASSIGNMENT TITLE'].replace(title_to_manage, new_name)
+                                # Update in users table
+                                users_df['assignment_title'] = users_df['assignment_title'].replace(title_to_manage, new_name)
+                                
+                                # Save both tables
+                                data_manager.save_table(tasks_df, 'tasks')
+                                data_manager.save_table(users_df, 'users')
+                                st.success(f"'{title_to_manage}' has been renamed to '{new_name}'.")
+                                st.rerun()
+                            else:
+                                st.warning("Please provide a new, different name.")
+
+                # --- Delete Logic ---
+                with st.expander(f"Delete '{title_to_manage}'"):
+                    st.warning(f"**Warning:** Deleting a title is permanent. You can only delete a title if it is not assigned to any real tasks or registered users.")
+                    
+                    st.write("---")
+                    st.write("**Users currently assigned to this title:**")
+                    users_assigned_to_title = users_df[users_df['assignment_title'] == title_to_manage]
+                    if not users_assigned_to_title.empty:
+                        for index, user in users_assigned_to_title.iterrows():
+                            st.write(f"- {user['first_name']} {user['last_name']} ({user['email']})")
+                    else:
+                        st.info("No registered users are currently assigned to this title.")
+                    
+                    st.write("---")
+                    st.write("**Tasks currently assigned to this title (excluding placeholders):**")
+                    tasks_assigned_to_title = tasks_df[(tasks_df['ASSIGNMENT TITLE'] == title_to_manage) & (tasks_df['Fiscal Year'] > 1901)]
+                    if not tasks_assigned_to_title.empty:
+                        for index, task in tasks_assigned_to_title.iterrows():
+                            st.write(f"- {task['TASK']} (FY{task['Fiscal Year']})")
+                    else:
+                        st.info("No active tasks are currently assigned to this title.")
+                    st.write("---")
+                    
+                    submitted_delete = st.button("Delete Title Permanently", type="primary")
+                    if submitted_delete:
+                        # Check for dependencies
+                        users_assigned = users_df[users_df['assignment_title'] == title_to_manage]
+                        tasks_assigned = tasks_df[(tasks_df['ASSIGNMENT TITLE'] == title_to_manage) & (tasks_df['Fiscal Year'] > 1901)]
+
+                        if not users_assigned.empty:
+                            st.error(f"Cannot delete. This title is assigned to {len(users_assigned)} user(s). Please reassign them first.")
+                        elif not tasks_assigned.empty:
+                            st.error(f"Cannot delete. This title is assigned to {len(tasks_assigned)} real task(s). Please reassign them first.")
+                        else:
+                            # Safe to delete. Remove all tasks with this title (which should only be placeholders)
+                            tasks_df_after_delete = tasks_df[tasks_df['ASSIGNMENT TITLE'] != title_to_manage]
+                            data_manager.save_table(tasks_df_after_delete, 'tasks')
+                            st.success(f"'{title_to_manage}' has been deleted successfully.")
+                            st.rerun()
+
+
