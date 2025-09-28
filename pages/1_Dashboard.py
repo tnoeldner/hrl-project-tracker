@@ -76,7 +76,7 @@ def create_pdf_report(metrics, overdue_df, unscheduled_df):
 
 st.set_page_config(page_title="Dashboard", layout="wide")
 st.title("📊 Dashboard Report")
-df = data_manager.load_data()
+df = data_manager.load_table('tasks')
 
 if df is not None:
     # --- GLOBAL CONTROLS ---
