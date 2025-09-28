@@ -21,7 +21,8 @@ def load_table(table_name):
         # This logic applies only to the 'tasks' table
         if table_name == 'tasks':
             # Use pandas' powerful to_datetime, coercing any errors to NaT (Not a Time).
-            # This is the most reliable method for reading dates from any source.
+            # This is the most reliable method for reading dates from any source, including
+            # text like 'YYYY-MM-DD (DayName)'.
             if 'START' in df.columns:
                 df['START'] = pd.to_datetime(df['START'], errors='coerce')
             if 'END' in df.columns:
@@ -61,3 +62,4 @@ def save_and_log_changes(original_df, updated_df):
     """
     # The detailed changelog logic can be re-implemented here later if desired.
     return save_table(updated_df, 'tasks')
+
