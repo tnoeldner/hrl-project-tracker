@@ -15,7 +15,7 @@ st.title("🔍 Find, Filter & Comment on Tasks")
 df_original = data_manager.load_table('tasks')
 users_df = data_manager.load_table('users')
 
-if df_original is not None:
+if df_original is not None and users_df is not None:
     # --- JUMP TO TASK LOGIC ---
     if 'jump_to_task' in st.session_state and st.session_state.jump_to_task is not None:
         jump_id = st.session_state.jump_to_task
@@ -25,6 +25,65 @@ if df_original is not None:
             st.info("Showing details for the task selected from your notifications.")
             
             selected_task = task_to_show.iloc[0]
+
+            # --- EDITING FORM FOR JUMPED-TO TASK ---
+            st.subheader(f"Editing Task: {selected_task['TASK']}")
+            with st.form(f"edit_jumped_task_form"):
+                
+                # Prepare dropdown options
+                assignment_options = sorted([str(item) for item in df_original['ASSIGNMENT TITLE'].unique()])
+                progress_options = ["NOT STARTED", "IN PROGRESS", "COMPLETE"]
+                bucket_options_form = sorted([str(item) for item in df_original['PLANNER BUCKET'].unique()])
+                semester_options = sorted([str(item) for item in df_original['SEMESTER'].unique() if pd.notna(item)])
+
+                # Get current indices for dropdowns, with error handling for blank values
+                try:
+                    title_index = assignment_options.index(selected_task['ASSIGNMENT TITLE'])
+                except (ValueError, TypeError):
+                    title_index = 0
+                try:
+                    progress_index = progress_options.index(selected_task['PROGRESS'])
+                except (ValueError, TypeError):
+                    progress_index = 0
+                try:
+                    bucket_index = bucket_options_form.index(selected_task['PLANNER BUCKET'])
+                except (ValueError, TypeError):
+                    bucket_index = 0
+                try:
+                    current_semester = str(selected_task.get('SEMESTER', ''))
+                    semester_index = semester_options.index(current_semester) if current_semester in semester_options else 0
+                except (ValueError, TypeError):
+                    semester_index = 0
+                
+                # Form layout
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    new_assignment_title = st.selectbox("Assignment Title", options=assignment_options, index=title_index)
+                    new_progress = st.selectbox("Progress", options=progress_options, index=progress_index)
+                with c2:
+                    new_start_date = st.date_input("Start Date", value=pd.to_datetime(selected_task['START']))
+                    new_end_date = st.date_input("End Date", value=pd.to_datetime(selected_task['END']))
+                with c3:
+                    new_bucket = st.selectbox("Planner Bucket", options=bucket_options_form, index=bucket_index)
+                    new_semester = st.selectbox("Semester", options=semester_options, index=semester_index)
+
+                submitted_edit = st.form_submit_button("Save Task Changes")
+                if submitted_edit:
+                    df_updated = df_original.copy()
+                    df_updated.loc[df_updated['#'] == jump_id, 'ASSIGNMENT TITLE'] = new_assignment_title
+                    df_updated.loc[df_updated['#'] == jump_id, 'PROGRESS'] = new_progress
+                    df_updated.loc[df_updated['#'] == jump_id, 'START'] = pd.to_datetime(new_start_date)
+                    df_updated.loc[df_updated['#'] == jump_id, 'END'] = pd.to_datetime(new_end_date)
+                    df_updated.loc[df_updated['#'] == jump_id, 'PLANNER BUCKET'] = new_bucket
+                    df_updated.loc[df_updated['#'] == jump_id, 'SEMESTER'] = new_semester
+                    
+                    if data_manager.save_and_log_changes(df_original, df_updated):
+                        st.success("Task updated successfully!")
+                        st.rerun()
+
+            st.markdown("---")
+            # --- END OF NEW EDITING FORM ---
+
             st.subheader(f"Comments for Task: {selected_task['TASK']}")
             comments = data_manager.get_comments_for_task(jump_id)
             if not comments.empty:
@@ -36,12 +95,22 @@ if df_original is not None:
 
             with st.form(f"comment_form_{jump_id}", clear_on_submit=True):
                 comment_text = st.text_area("Add a new comment:")
+                
+                all_user_emails = users_df['email'].tolist()
+                author_email = st.session_state.logged_in_user
+                other_users = [email for email in all_user_emails if email != author_email]
+                
+                additional_recipients = st.multiselect(
+                    "Additionally notify:",
+                    options=other_users,
+                    help="Select other users to notify. The person assigned to the task will be notified automatically."
+                )
+
                 submitted = st.form_submit_button("Post Comment")
                 if submitted:
                     if comment_text:
-                        author_email = st.session_state.logged_in_user
                         assigned_title = selected_task['ASSIGNMENT TITLE']
-                        data_manager.add_comment_and_notify(jump_id, author_email, comment_text, assigned_title)
+                        data_manager.add_comment_and_notify(jump_id, author_email, comment_text, assigned_title, additional_recipients)
                         st.success("Comment posted!")
                         st.rerun()
 
@@ -117,12 +186,22 @@ if df_original is not None:
 
         with st.form(f"comment_form_{task_id}", clear_on_submit=True):
             comment_text = st.text_area("Add a new comment:")
+
+            all_user_emails = users_df['email'].tolist()
+            author_email = st.session_state.logged_in_user
+            other_users = [email for email in all_user_emails if email != author_email]
+            
+            additional_recipients = st.multiselect(
+                "Additionally notify:",
+                options=other_users,
+                help="Select other users to notify. The person assigned to the task will be notified automatically."
+            )
+
             submitted = st.form_submit_button("Post Comment")
             if submitted:
                 if comment_text:
-                    author_email = st.session_state.logged_in_user
                     assigned_title = selected_task['ASSIGNMENT TITLE']
-                    data_manager.add_comment_and_notify(task_id, author_email, comment_text, assigned_title)
+                    data_manager.add_comment_and_notify(task_id, author_email, comment_text, assigned_title, additional_recipients)
                     st.success("Comment posted!")
                     st.rerun()
                 else:
@@ -146,3 +225,4 @@ if df_original is not None:
             st.error("Failed to save edits.")
 else:
     st.warning("Could not load data from the database.")
+

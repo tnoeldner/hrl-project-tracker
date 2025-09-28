@@ -29,6 +29,7 @@ if notifications_df is not None and tasks_df is not None:
     if not unread_notifications.empty:
         # Button to mark all as read
         if st.button("Mark All as Read"):
+            # Update the original notifications DataFrame
             notifications_df.loc[unread_notifications.index, 'is_read'] = True
             if data_manager.save_table(notifications_df, 'notifications'):
                 st.success("All notifications marked as read.")
@@ -36,37 +37,35 @@ if notifications_df is not None and tasks_df is not None:
 
         # Display each unread notification
         for index, notification in unread_notifications.iterrows():
-            message = str(notification['message'])
-            
-            # --- UPDATED LOGIC TO PARSE AND DISPLAY FULL COMMENT ---
-            # The message is now expected to be in the format: "Header |:| Comment Text"
-            parts = message.split(' |:| ')
-            if len(parts) == 2:
-                header_part, comment_part = parts
-                match = re.search(r'task #(\d+)', header_part)
-                if match:
-                    task_id = int(match.group(1))
-                    task_details = tasks_df[tasks_df['#'] == task_id]
-                    
+            # The message is now structured as "Header |:| Comment Text"
+            parts = notification['message'].split(' |:| ')
+            header = parts[0]
+            comment_text = parts[1] if len(parts) > 1 else ""
+
+            # Use regex to find the task ID in the header
+            match = re.search(r'task #(\d+)', header)
+            if match:
+                task_id = int(match.group(1))
+                task_details = tasks_df[tasks_df['#'] == task_id]
+                
+                with st.container(border=True):
                     if not task_details.empty:
                         task_name = task_details.iloc[0]['TASK']
-                        
-                        # Display notification in a bordered container
-                        with st.container(border=True):
-                            st.markdown(f"**{header_part}**")
-                            st.markdown(f"> {comment_part}") # Display the comment text
-                            st.caption(f"Task: {task_name}")
-                            
-                            # Button to jump to the task on the Find and Filter page
-                            if st.button("View Task & Add Comment", key=f"goto_{notification['notification_id']}"):
-                                st.session_state['jump_to_task'] = task_id
-                                st.switch_page("pages/2_Find_and_Filter.py")
+                        st.markdown(f"**{header}** on task: *{task_name}*")
                     else:
-                        st.info(f"**{header_part}**\n\n*Task details not found.*")
+                        st.markdown(f"**{header}**")
+
+                    st.info(f"**Comment:** {comment_text}")
+
+                    # --- JUMP TO TASK BUTTON ---
+                    if st.button("View Task & Add Comment", key=f"jump_{notification['notification_id']}"):
+                        # Set the task ID in the session state
+                        st.session_state.jump_to_task = task_id
+                        # Programmatically switch to the Find and Filter page
+                        st.switch_page("pages/2_Find_and_Filter.py")
+
             else:
-                # Fallback for old or simple notification formats
-                st.info(f"**{message}**")
-            # ------------------------------------
+                st.info(f"**{notification['message']}**")
 
     else:
         st.success("You have no unread notifications.")
@@ -77,7 +76,7 @@ if notifications_df is not None and tasks_df is not None:
     with st.expander("View Read Notifications"):
         if not read_notifications.empty:
             for index, notification in read_notifications.iterrows():
-                st.write(f"_{notification['message']}_")
+                st.write(f"_{notification['message'].split(' |:| ')[0]}_") # Show only the header for read notifications
         else:
             st.write("No previously read notifications.")
 
