@@ -15,7 +15,7 @@ st.markdown("---")
 # The content is read from the user_manual.md file you provided.
 # This ensures that any future updates to the markdown file are automatically reflected here.
 try:
-    with open('user_manual.md', 'r', encoding='utf-8') as f:
+    with open('user_manual.md.txt', 'r', encoding='utf-8') as f:
         manual_content = f.read()
     
     # We use unsafe_allow_html=True to render the color tags for the status indicators.
