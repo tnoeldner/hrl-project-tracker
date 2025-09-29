@@ -84,14 +84,17 @@ Step 2: Test Your Changes Locally
     pdf.multi_cell(0, 7, "-   Thoroughly test the new feature in your web browser to ensure it works as expected.")
     pdf.ln(5)
     pdf.multi_cell(0, 7, "Step 3: Add, Commit, and Push with Git\n-   Once you are satisfied, push your changes to GitHub. This is what triggers Streamlit Cloud to update the live application.")
+    
+    # CORRECTED: Shortened the example commit message to prevent text wrapping errors
     write_code_block("""# 1. Add all the files you've changed
 git add .
 
 # 2. Commit the changes with a descriptive message
-git commit -m "Add a short description of your changes here"
+git commit -m "Your commit message"
 
 # 3. Push the changes to GitHub
 git push""")
+    
     pdf.set_font("Helvetica", "", 11)
     pdf.multi_cell(0, 7, "Step 4: Monitor Deployment on Streamlit Cloud\n-   Go to your Streamlit Community Cloud dashboard at `share.streamlit.io`. You will see your application's status change to 'Rebooting' or 'Updating.' The process usually takes a few minutes.")
 
@@ -200,4 +203,5 @@ with st.expander("4. Managing the Live Application"):
     -   **Viewing Data:** You can view and even manually edit your live data by logging into your Supabase project and using the **Table Editor**.
     -   **Backups:** Supabase automatically creates daily backups of your database, which can be restored if needed.
     """)
+
 
