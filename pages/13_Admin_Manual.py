@@ -1,5 +1,7 @@
 # File: pages/13_Admin_Manual.py
 import streamlit as st
+from fpdf import FPDF
+from datetime import datetime
 
 # --- AUTHENTICATION CHECK ---
 # Ensure user is logged in
@@ -14,13 +16,103 @@ if user_role != 'admin':
     st.stop()
 # --------------------------
 
+# --- PDF GENERATION FUNCTION ---
+def create_admin_pdf():
+    """Generates a PDF version of the admin manual."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # --- PDF Header ---
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.cell(0, 10, "HRL Project Tracker - Admin & Programmer's Manual", ln=True, align='C')
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 8, f"Generated on: {datetime.now().strftime('%Y-%m-%d')}", ln=True, align='C')
+    pdf.ln(10)
+
+    # Helper function to write a section
+    def write_section(title, content):
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 10, title, ln=True, border='B')
+        pdf.ln(4)
+        pdf.set_font("Helvetica", "", 11)
+        # Replace markdown bold with PDF bold
+        content = content.replace("**", "")
+        pdf.multi_cell(0, 7, content)
+        pdf.ln(5)
+
+    def write_code_block(code):
+        pdf.set_font("Courier", "", 10)
+        pdf.set_fill_color(240, 240, 240) # Light grey background
+        pdf.multi_cell(0, 5, code, border=1, fill=True)
+        pdf.ln(5)
+
+    # --- PDF Body ---
+    # Section 1: Architecture
+    write_section("1. Application Architecture", 
+    """This application is built on a modern, cloud-based architecture designed for multi-user access and stability.
+-   Frontend & Backend: Python with the Streamlit library.
+-   Data Manipulation: Pandas for handling data tables.
+-   Database: A cloud-hosted PostgreSQL database provided by Supabase.
+-   Version Control: Git, with the code hosted on GitHub.
+-   Deployment: The live application is hosted on Streamlit Community Cloud.""")
+
+    # Section 2: File Structure
+    write_section("2. Project File Structure",
+    """Understanding the project's file structure is key to making updates.
+-   `Main.py`: The main entry point of the application. It contains the login logic.
+-   `pages/`: This directory contains all the other pages of the application.
+-   `data_manager.py`: A critical custom module that acts as the single source of truth for all database interactions.
+-   `requirements.txt`: A list of all Python libraries required by the app.
+-   `migrate_to_db.py`: A one-time script used to upload data from local files to the cloud database.
+-   `.streamlit/secrets.toml`: A local, private file that stores your database password for local testing. This file must never be uploaded to GitHub.
+-   `.gitignore`: A configuration file that tells Git to ignore certain files, such as secrets.toml.""")
+
+    # Section 3: The Workflow
+    write_section("3. How to Make and Deploy Updates (The Workflow)",
+    """This is the standard operating procedure for making a change to the app and publishing it for all users to see.
+
+Step 1: Make Changes Locally
+-   Edit the `.py` files on your local computer to add a new feature or fix a bug.
+
+Step 2: Test Your Changes Locally
+-   Before deploying, always test your changes on your own machine.
+-   Open Git Bash, navigate to your project folder, and run:""")
+    write_code_block("python -m streamlit run Main.py")
+    pdf.set_font("Helvetica", "", 11)
+    pdf.multi_cell(0, 7, "-   Thoroughly test the new feature in your web browser to ensure it works as expected.")
+    pdf.ln(5)
+    pdf.multi_cell(0, 7, "Step 3: Add, Commit, and Push with Git\n-   Once you are satisfied, push your changes to GitHub. This is what triggers Streamlit Cloud to update the live application.")
+    write_code_block("""# 1. Add all the files you've changed
+git add .
+
+# 2. Commit the changes with a descriptive message
+git commit -m "Add a short description of your changes here"
+
+# 3. Push the changes to GitHub
+git push""")
+    pdf.set_font("Helvetica", "", 11)
+    pdf.multi_cell(0, 7, "Step 4: Monitor Deployment on Streamlit Cloud\n-   Go to your Streamlit Community Cloud dashboard at `share.streamlit.io`. You will see your application's status change to 'Rebooting' or 'Updating.' The process usually takes a few minutes.")
+
+    return bytes(pdf.output())
+
+# --- PAGE UI ---
 st.set_page_config(page_title="Admin Manual", layout="wide")
 st.title("🛠️ Administrator & Programmer's Manual")
 st.info("This manual provides a technical overview of the HRL Project Tracker for maintenance and updates.")
+
+# --- PDF Download Button ---
+pdf_data = create_admin_pdf()
+st.download_button(
+    label="📄 Download Admin Manual as PDF",
+    data=pdf_data,
+    file_name="HRL_Project_Tracker_Admin_Manual.pdf",
+    mime="application/pdf"
+)
 st.markdown("---")
 
 # --- Manual Content ---
-
+# (The rest of the expander-based UI remains the same)
 with st.expander("1. Application Architecture"):
     st.markdown("""
     This application is built on a modern, cloud-based architecture designed for multi-user access and stability.
@@ -96,3 +188,4 @@ with st.expander("4. Managing the Live Application"):
     -   **Viewing Data:** You can view and even manually edit your live data by logging into your Supabase project and using the **Table Editor**.
     -   **Backups:** Supabase automatically creates daily backups of your database, which can be restored if needed.
     """)
+
