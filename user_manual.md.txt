@@ -1,11 +1,17 @@
 Housing & Residence Life Project Tracker
 End-User Manual
-1. Introduction
+<details>
+<summary><h3>1. Introduction</h3></summary>
+
 Welcome to the Housing & Residence Life (HRL) Project Tracker! This application is a powerful, centralized tool designed to replace the traditional Excel workbook for tracking departmental projects, events, and tasks. It provides a fast, interactive, and multi-user environment for managing project timelines, updating progress, and generating insightful reports.
 
 This manual will guide you through every feature of the application, from your first login to advanced bulk editing and reporting.
 
-2. Getting Started: Login & Account Management
+</details>
+
+<details>
+<summary><h3>2. Getting Started: Login & Account Management</h3></summary>
+
 Access to the tracker is secured through a user account system.
 
 2.1. Logging In
@@ -51,10 +57,18 @@ Logging Out:
 
 Click the Logout button at the bottom of the sidebar.
 
-3. The Main Interface
+</details>
+
+<details>
+<summary><h3>3. The Main Interface</h3></summary>
+
 The application is divided into several modules, each accessible from the navigation menu in the sidebar on the left. After logging in, you will land on the Main page, which provides a welcome message and a brief overview.
 
-4. Module: Dashboard
+</details>
+
+<details>
+<summary><h3>4. Module: Dashboard</h3></summary>
+
 The Dashboard is your "at-a-glance" view of the entire project landscape. It is fully interactive and filters all its data based on the Fiscal Year you select at the top.
 
 Global Controls:
@@ -89,7 +103,11 @@ Upcoming Tasks
 
 To Edit: Click on a cell in the PROGRESS column and select a new status from the dropdown. After making your changes, click the Save...Changes button below the respective table.
 
-5. Module: Find and Filter
+</details>
+
+<details>
+<summary><h3>5. Module: Find and Filter</h3></summary>
+
 This page is a powerful tool for searching, viewing, and editing the entire task list.
 
 Filters: Use the dropdowns at the top to filter the table by Planner Bucket and/or Fiscal Year. The table updates instantly.
@@ -104,7 +122,11 @@ Date columns (START, END) will open a calendar picker.
 
 Saving: After making any changes, click the Save Changes button to update the master database.
 
-6. Module: Timeline View
+</details>
+
+<details>
+<summary><h3>6. Module: Timeline View</h3></summary>
+
 This page provides a clean, list-style view of near-term tasks, allowing you to quickly see what's on the horizon and what was recently started.
 
 Controls: Use the number input at the top to set how many days forward and back you want to view from today's date.
@@ -121,7 +143,11 @@ Task Status at a Glance: Each task in the list now displays its current progress
 
 Expanders: Click on any task summary line to expand it and see full details, including who the task is assigned to, the Planner Bucket, and the Audience.
 
-7. Module: Calendar View
+</details>
+
+<details>
+<summary><h3>7. Module: Calendar View</h3></summary>
+
 This page provides a traditional monthly calendar of all tasks.
 
 Navigation: Use the arrows at the top to move between months.
@@ -136,7 +162,11 @@ Modify any of the fields in the form.
 
 Click Save Changes to update the task or Clear Selection to close the form without saving.
 
-8. Module: Gantt Chart View
+</details>
+
+<details>
+<summary><h3>8. Module: Gantt Chart View</h3></summary>
+
 The Gantt chart offers a professional project management timeline, visualizing task durations and overlaps.
 
 Filters: Use the Fiscal Year dropdown and the Start/End Date Pickers to set the initial view.
@@ -145,11 +175,15 @@ Interaction: The chart is fully interactive.
 
 Zoom/Pan: Use your mouse wheel to zoom in and out, and click and drag to pan across the timeline. As you zoom in, the date axis will automatically shift from showing months to weeks to individual days.
 
-Hover: Hover your mouse over any task bar to see its full details in a tooltip.
+Hover: Hover over any task bar to see its full details in a tooltip.
 
 Legend: Click on Planner Bucket names in the legend on the right to hide or show their tasks on the chart.
 
-9. Module: Bulk Edit & Duplicate
+</details>
+
+<details>
+<summary><h3>9. Module: Bulk Edit & Duplicate</h3></summary>
+
 This is an efficiency tool for managing large groups of tasks, especially recurring annual events.
 
 Filtering: First, select a Planner Bucket and Fiscal Year to load the set of tasks you want to manage.
@@ -176,7 +210,11 @@ Set the Days to shift dates forward (default is 364 to maintain the day of the w
 
 Click the Duplicate Tasks button. The app will create new copies of all filtered tasks with updated dates and a new fiscal year.
 
-10. Module: Printable Reports
+</details>
+
+<details>
+<summary><h3>10. Module: Printable Reports</h3></summary>
+
 This page is your hub for generating downloadable PDF documents.
 
 Summary Report: A one-page overview of all currently overdue tasks.
@@ -185,7 +223,11 @@ Full Project List: A detailed, multi-page landscape report showing all data colu
 
 Planner Bucket Breakdown: A specific, filtered report. Select a Planner Bucket and Fiscal Year from the dropdowns, then click the download button.
 
-11. Module: User Settings
+</details>
+
+<details>
+<summary><h3>11. Module: User Settings</h3></summary>
+
 This page allows you to manage your personal and administrative settings.
 
 My Notification Preferences:
@@ -201,5 +243,7 @@ If you are an administrator, a second section will appear.
 You can select any registered user from the Select a User to Edit dropdown.
 
 You can then set that user's email notification frequency on their behalf and click Save This User's Settings.
+
+</details>
 
 This manual was last updated on September 28, 2025.
