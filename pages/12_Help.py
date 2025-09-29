@@ -16,7 +16,7 @@ st.markdown("---")
 # This script now reads the user_manual.md file and renders it using
 # Streamlit's native expander components for a cleaner look.
 try:
-    with open('user_manual.md', 'r', encoding='utf-8') as f:
+    with open('user_manual.md.txt', 'r', encoding='utf-8') as f:
         manual_content = f.read()
     
     # Split the content into sections based on the <details> tag
