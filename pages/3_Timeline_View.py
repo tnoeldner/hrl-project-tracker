@@ -2,7 +2,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import matplotlib.pyplot as plt
 import data_manager
 
 # --- AUTHENTICATION CHECK ---
@@ -11,8 +10,6 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
     st.stop()
 # --------------------------
 
-# (The rest of the file remains the same)
-# ...
 st.set_page_config(page_title="Timeline View", layout="wide")
 st.title("🗓️ Timeline View")
 
@@ -25,16 +22,28 @@ if df is not None:
     future_date = today + pd.Timedelta(days=num_days)
     past_date = today - pd.Timedelta(days=num_days)
     
+    # Filter tasks based on their START date
     upcoming_tasks = df[(df['START'] >= today) & (df['START'] <= future_date)].sort_values(by='START')
     recent_tasks = df[(df['START'] < today) & (df['START'] >= past_date)].sort_values(by='START', ascending=False)
+    
+    # Define the colors for each status
+    status_colors = {
+        "NOT STARTED": "red",
+        "IN PROGRESS": "orange", # Using orange for better visibility than yellow
+        "COMPLETE": "green"
+    }
     
     col1, col2 = st.columns(2)
     with col1:
         st.subheader(f"Starting in Next {num_days} Days")
         if not upcoming_tasks.empty:
+            # Loop through each task and create an expander
             for index, row in upcoming_tasks.iterrows():
-                # CORRECTED TYPO IN THE LINE BELOW
-                with st.expander(f"{row['START'].strftime('%m-%d-%Y, %A')} - {row['TASK']}"):
+                status = row.get('PROGRESS', 'NOT STARTED')
+                color = status_colors.get(status, "grey") # Default to grey for any other status
+                status_display = f":{color}[{status}]"
+                
+                with st.expander(f"{row['START'].strftime('%m-%d-%Y, %A')} - {row['TASK']} - {status_display}"):
                     st.markdown(f"**Assigned To:** {row['ASSIGNMENT TITLE']}")
                     st.markdown(f"**Planner Bucket:** {row['PLANNER BUCKET']}")
                     st.markdown(f"**Audience:** {row['AUDIENCE']}")
@@ -44,13 +53,17 @@ if df is not None:
     with col2:
         st.subheader(f"Started in Past {num_days} Days")
         if not recent_tasks.empty:
+            # Loop through each task and create an expander
             for index, row in recent_tasks.iterrows():
-                # CORRECTED TYPO IN THE LINE BELOW
-                with st.expander(f"{row['START'].strftime('%m-%d-%Y, %A')} - {row['TASK']}"):
+                status = row.get('PROGRESS', 'NOT STARTED')
+                color = status_colors.get(status, "grey")
+                status_display = f":{color}[{status}]"
+
+                with st.expander(f"{row['START'].strftime('%m-%d-%Y, %A')} - {row['TASK']} - {status_display}"):
                     st.markdown(f"**Assigned To:** {row['ASSIGNMENT TITLE']}")
                     st.markdown(f"**Planner Bucket:** {row['PLANNER BUCKET']}")
                     st.markdown(f"**Audience:** {row['AUDIENCE']}")
         else:
             st.info("No tasks started in this period.")
 else:
-    st.warning("Could not load data.")
+    st.warning("Could not load data from the database.")
