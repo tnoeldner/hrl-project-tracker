@@ -10,52 +10,57 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
     st.stop()
 # --------------------------
 
-# --- GITHUB API FUNCTION ---
-@st.cache_data(ttl=3600) # Cache the result for 1 hour to avoid making too many API calls
-def get_commit_history():
-    """Fetches the last 5 commit messages from the GitHub repository."""
-    # These should match your GitHub username and repository name
+# --- GITHUB API FUNCTIONS ---
+@st.cache_data(ttl=3600) # Cache the result for 1 hour
+def get_api_data(endpoint):
+    """Generic function to fetch data from the GitHub API."""
     REPO_OWNER = "tnoeldner"
     REPO_NAME = "hrl-project-tracker"
-    
-    # Safely get the token from Streamlit's secrets management
     TOKEN = st.secrets.get("GITHUB_TOKEN")
     
-    # Check if the token was found
     if not TOKEN:
-        return ["GitHub token not found. Please configure it in your Streamlit secrets."]
+        return None, "GitHub token not found. Please configure it in your Streamlit secrets."
 
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits"
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/{endpoint}"
     headers = {"Authorization": f"token {TOKEN}"}
     
     try:
-        response = requests.get(url, headers=headers, params={"per_page": 5})
-        response.raise_for_status() # Will raise an error for bad responses (4xx or 5xx)
-        commits = response.json()
-        
-        history = []
-        for commit in commits:
-            message = commit['commit']['message']
-            author = commit['commit']['author']['name']
-            # Use pandas for robust date parsing and formatting
-            date = pd.to_datetime(commit['commit']['author']['date']).strftime('%Y-%m-%d %H:%M')
-            history.append(f"**{date}** - {message} *(by {author})*")
-        return history
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.json(), None
     except requests.exceptions.RequestException as e:
-        return [f"Error fetching commit history: {e}"]
+        return None, f"Error fetching from GitHub: {e}"
     except Exception as e:
-        return [f"An unexpected error occurred: {e}"]
+        return None, f"An unexpected error occurred: {e}"
 
-# --- Function to read version.txt ---
-def get_version_info():
-    try:
-        with open('version.txt', 'r') as f:
-            lines = f.readlines()
-            version = lines[0].split(':')[1].strip()
-            last_updated = lines[1].split(':')[1].strip()
-            return version, last_updated
-    except (FileNotFoundError, IndexError):
-        return "1.0.0", "N/A"
+def get_latest_release():
+    """Fetches the latest release information from GitHub."""
+    data, error = get_api_data("releases/latest")
+    if error:
+        return "N/A", "N/A", error
+    
+    if not data: # Handles case where there are no releases
+        return "No releases found", "N/A", "Please create a release on GitHub to see version info."
+    
+    version = data.get("tag_name", "N/A")
+    last_updated = pd.to_datetime(data.get("published_at")).strftime('%Y-%m-%d')
+    release_notes = data.get("body", "No release notes provided for this version.")
+    
+    return version, last_updated, release_notes
+
+def get_commit_history():
+    """Fetches the last 5 commit messages from the GitHub repository."""
+    data, error = get_api_data("commits?per_page=5")
+    if error:
+        return [error]
+        
+    history = []
+    for commit in data:
+        message = commit['commit']['message']
+        author = commit['commit']['author']['name']
+        date = pd.to_datetime(commit['commit']['author']['date']).strftime('%Y-%m-%d %H:%M')
+        history.append(f"**{date}** - {message} *(by {author})*")
+    return history
 
 # --- PAGE UI ---
 st.set_page_config(page_title="About", layout="wide")
@@ -64,7 +69,8 @@ st.markdown("---")
 
 st.header("Application Details")
 
-version, last_updated = get_version_info()
+# Get version info from GitHub Releases
+version, last_updated, release_notes = get_latest_release()
 
 col1, col2 = st.columns(2)
 with col1:
@@ -75,11 +81,16 @@ with col2:
     st.write(f"**Current Version:** {version}")
     st.write(f"**Last Updated:** {last_updated}")
 
+# Display release notes if they exist
+if release_notes:
+    st.subheader("Release Notes")
+    st.markdown(release_notes)
+
 st.markdown("---")
 
 # --- RECENT UPDATES SECTION ---
-st.header("Recent Updates (from GitHub)")
-st.info("This section shows the last 5 changes made to the application's source code.")
+st.header("Recent Code Changes")
+st.info("This section shows the last 5 code commits pushed to the repository.")
 
 commit_history = get_commit_history()
 for entry in commit_history:
