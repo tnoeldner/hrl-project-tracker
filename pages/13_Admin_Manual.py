@@ -44,7 +44,8 @@ def create_admin_pdf():
     def write_code_block(code):
         pdf.set_font("Courier", "", 10)
         pdf.set_fill_color(240, 240, 240) # Light grey background
-        pdf.multi_cell(0, 5, code, border=1, fill=True)
+        # CRITICAL FIX: Added split_only=False to allow wrapping long lines
+        pdf.multi_cell(0, 5, code, border=1, fill=True, split_only=False)
         pdf.ln(5)
 
     # --- PDF Body ---
@@ -93,6 +94,17 @@ git commit -m "Add a short description of your changes here"
 git push""")
     pdf.set_font("Helvetica", "", 11)
     pdf.multi_cell(0, 7, "Step 4: Monitor Deployment on Streamlit Cloud\n-   Go to your Streamlit Community Cloud dashboard at `share.streamlit.io`. You will see your application's status change to 'Rebooting' or 'Updating.' The process usually takes a few minutes.")
+
+    # Section 4: Managing the Live Application (This was missing from the PDF)
+    write_section("4. Managing the Live Application",
+    """Streamlit Community Cloud (share.streamlit.io)
+-   Viewing Logs: If your live app shows an error, click the Manage app button in the lower-right corner of the app screen.
+-   Managing Secrets: If your database password ever changes, you must update it in your app's settings under the Secrets section.
+-   Rebooting: If the app ever becomes unresponsive, you can manually restart it.
+
+Supabase (Cloud Database)
+-   Viewing Data: You can view and even manually edit your live data by logging into your Supabase project and using the Table Editor.
+-   Backups: Supabase automatically creates daily backups of your database.""")
 
     return bytes(pdf.output())
 

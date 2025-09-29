@@ -56,7 +56,7 @@ st.set_page_config(page_title="Help", layout="wide")
 st.title("📖 HRL Project Tracker Help & Instructions")
 
 try:
-    with open('user_manual.md', 'r', encoding='utf-8') as f:
+    with open('user_manual.md.txt', 'r', encoding='utf-8') as f:
         manual_content = f.read()
     
     # --- PDF Download Button ---
