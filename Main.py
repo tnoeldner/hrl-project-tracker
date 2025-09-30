@@ -6,15 +6,19 @@ import data_manager
 # --- AUTHENTICATION FUNCTIONS (using the database) ---
 
 def check_login(username, password):
-    """Checks credentials against the users table in the database."""
+    """Checks credentials and user status against the users table."""
     users_df = data_manager.load_table('users')
     if users_df is None:
-        return None
+        return None, "Error loading user data."
     
     user_record = users_df[users_df['email'] == username]
     if not user_record.empty and user_record.iloc[0]['password'] == password:
-        return user_record.iloc[0].to_dict()
-    return None
+        # Check if the user is active
+        if user_record.iloc[0].get('status', 'active') == 'active':
+            return user_record.iloc[0].to_dict(), "Login successful."
+        else:
+            return None, "This user account is inactive. Please contact an administrator."
+    return None, "Incorrect email or password."
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="HRL Project Tracker", layout="wide")
@@ -23,7 +27,10 @@ st.set_page_config(page_title="HRL Project Tracker", layout="wide")
 tasks_df = data_manager.load_table('tasks')
 
 # --- LOGIN / REGISTRATION LOGIC ---
-if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
+if 'logged_in_user' not in st.session_state:
+    st.session_state.logged_in_user = None
+
+if st.session_state.logged_in_user is None:
     st.title("HRL Project Tracker Login")
     login_tab, register_tab = st.tabs(["Login", "Register"])
 
@@ -33,13 +40,13 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
             password = st.text_input("Password", type="password")
             submitted = st.form_submit_button("Login")
             if submitted:
-                user_data = check_login(username, password)
+                user_data, message = check_login(username, password)
                 if user_data:
                     st.session_state.logged_in_user = username
                     st.session_state.user_data = user_data
                     st.rerun()
                 else:
-                    st.error("Incorrect email or password")
+                    st.error(message)
     
     with register_tab:
         if tasks_df is not None:
@@ -61,7 +68,8 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
                     else:
                         new_user = pd.DataFrame([{
                             "email": email, "password": "changeme", "first_name": first_name,
-                            "last_name": last_name, "assignment_title": assignment_title, "role": "viewer"
+                            "last_name": last_name, "assignment_title": assignment_title, 
+                            "role": "viewer", "status": "active"
                         }])
                         updated_users_df = pd.concat([users_df, new_user], ignore_index=True)
                         if data_manager.save_table(updated_users_df, 'users'):
@@ -74,27 +82,32 @@ else:
     user_email = st.session_state.logged_in_user
     user_data = st.session_state.user_data
     
-    st.sidebar.success(f"Logged in as: {user_data['first_name']} {user_data['last_name']}")
+    st.sidebar.success(f"Logged in as: {user_data.get('first_name', '')} {user_data.get('last_name', '')}")
     
     # --- Notification Bell ---
-    unread_notifications = data_manager.get_unread_notifications(user_email)
-    unread_count = len(unread_notifications)
-    
-    # This should be the correct, numbered filename for your notifications page
-    notifications_page_path = "pages/2_Notifications.py" 
-    
-    if unread_count > 0:
-        st.sidebar.page_link(notifications_page_path, label=f"🔔 Notifications ({unread_count})")
-    else:
-        st.sidebar.page_link(notifications_page_path, label="🔕 Notifications")
+    # This part requires 'get_unread_notifications' in data_manager.py
+    try:
+        unread_notifications = data_manager.get_unread_notifications(user_email)
+        unread_count = len(unread_notifications) if unread_notifications is not None else 0
+        
+        # This should be the correct, numbered filename for your notifications page
+        notifications_page_path = "pages/2_Notifications.py" 
+        
+        if unread_count > 0:
+            st.sidebar.page_link(notifications_page_path, label=f"🔔 Notifications ({unread_count})")
+        else:
+            st.sidebar.page_link(notifications_page_path, label="🔕 Notifications")
+    except AttributeError:
+        st.sidebar.warning("Notification function not found in data manager.")
+
     
     with st.sidebar.expander("👤 Account"):
-        st.write(f"**Assignment Title:** {user_data['assignment_title']}")
+        st.write(f"**Assignment Title:** {user_data.get('assignment_title', 'N/A')}")
         new_password = st.text_input("Change Password", type="password", key="new_pw")
         if st.button("Update Password"):
             if new_password:
                 users_df = data_manager.load_table('users')
-                users_df.loc[users_df['email'] == st.session_state.logged_in_user, 'password'] = new_password
+                users_df.loc[users_df['email'] == user_email, 'password'] = new_password
                 data_manager.save_table(users_df, 'users')
                 st.success("Password updated successfully!")
             else:
@@ -105,7 +118,6 @@ else:
         st.session_state.user_data = None
         st.rerun()
 
-    # --- UPDATED MAIN PAGE CONTENT ---
     st.image("und_logo.png", width=200)
     st.title("Housing & Residence Life Project Tracker")
     st.markdown("---")

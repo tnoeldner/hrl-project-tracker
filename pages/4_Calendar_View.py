@@ -22,7 +22,7 @@ if df_original is not None and icons_df is not None:
     # --- DYNAMIC ICON MAPPING ---
     # Convert the icons DataFrame to a dictionary for easy lookup
     bucket_icon_map = pd.Series(icons_df.icon.values, index=icons_df.bucket_name).to_dict()
-    # Ensure a default icon exists
+    # Ensure a default icon exists for buckets not in the map
     if 'Default' not in bucket_icon_map:
         bucket_icon_map['Default'] = '📌'
     
@@ -136,7 +136,6 @@ if df_original is not None and icons_df is not None:
                     df_updated = df_original.copy()
                     
                     # --- CRITICAL SAFEGUARD ---
-                    # Check if the original dataframe is valid before saving
                     if df_updated is None or df_updated.empty:
                         st.error("CRITICAL ERROR: Original data is missing. Save operation aborted to prevent data loss.")
                     else:
@@ -149,7 +148,8 @@ if df_original is not None and icons_df is not None:
                         df_updated.loc[task_id, 'TASK'] = new_task_desc
                         df_updated.loc[task_id, 'Fiscal Year'] = new_fiscal_year
                         
-                        if data_manager.save_and_log_changes(df_original, df_updated):
+                        user_email = st.session_state.logged_in_user
+                        if data_manager.save_and_log_changes(df_original, df_updated, user_email, "Calendar Edit"):
                             st.success("Task updated and logged successfully!")
                             st.session_state['selected_task_id'] = None
                             st.rerun() 
@@ -159,6 +159,4 @@ if df_original is not None and icons_df is not None:
                     st.rerun()
 else:
     st.warning("Could not load data.")
-
-
 

@@ -25,12 +25,12 @@ if df_original is not None:
         bucket_options = sorted(df_original['PLANNER BUCKET'].dropna().unique().tolist())
         selected_bucket = st.selectbox("Filter by Planner Bucket", options=bucket_options)
     with col2:
-        # This converts the column to numbers, drops any that fail, gets uniques, and sorts.
+        # Ensure only valid integer years are in the options
         year_values = pd.to_numeric(df_original['Fiscal Year'], errors='coerce').dropna().unique()
         year_options = sorted([int(y) for y in year_values])
         selected_year = st.selectbox("Filter by Fiscal Year", options=year_options, index=len(year_options)-1 if year_options else 0)
 
-    # CRITICAL FIX: Ensure the 'Fiscal Year' column is numeric before filtering
+    # Ensure the 'Fiscal Year' column is numeric before filtering
     df_original['Fiscal Year'] = pd.to_numeric(df_original['Fiscal Year'], errors='coerce')
     
     filtered_df = df_original[(df_original['PLANNER BUCKET'] == selected_bucket) & (df_original['Fiscal Year'] == selected_year)].copy()
@@ -118,7 +118,6 @@ if df_original is not None:
 
         col1, col2 = st.columns(2)
         with col1:
-            # CORRECTED: Safely calculate the default new fiscal year
             default_new_fy = selected_year + 1 if isinstance(selected_year, int) else datetime.now().year + 1
             new_fy = st.number_input("Enter New Fiscal Year:", min_value=2020, value=default_new_fy)
         with col2:
@@ -145,3 +144,4 @@ if df_original is not None:
         st.warning("No tasks found for the selected Planner Bucket and Fiscal Year.")
 else:
     st.warning("Could not load data.")
+
