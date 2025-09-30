@@ -1,10 +1,12 @@
 streamlit
 pandas
-plotly
-fpdf2
 openpyxl
-streamlit_calendar
-psycopg2-binary
-sqlalchemy
 matplotlib
+seaborn
+plotly
+streamlit_calendar
+fpdf2
+sqlalchemy
+psycopg2-binary
 xlsxwriter
+requests

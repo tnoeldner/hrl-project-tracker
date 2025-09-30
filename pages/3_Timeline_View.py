@@ -13,9 +13,19 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
 st.set_page_config(page_title="Timeline View", layout="wide")
 st.title("🗓️ Timeline View")
 
+# Load both the tasks and the icons data
 df = data_manager.load_table('tasks')
+icons_df = data_manager.load_table('bucket_icons')
 
-if df is not None:
+if df is not None and icons_df is not None:
+    # --- DYNAMIC ICON MAPPING ---
+    # Convert the icons DataFrame to a dictionary for easy lookup
+    bucket_icon_map = pd.Series(icons_df.icon.values, index=icons_df.bucket_name).to_dict()
+    # Ensure a default icon exists for buckets not in the map
+    if 'Default' not in bucket_icon_map:
+        bucket_icon_map['Default'] = '📌'
+    # --------------------------
+
     today = pd.to_datetime("today").normalize()
     num_days = st.number_input("Enter number of days to look forward/back:", min_value=1, value=30)
     
@@ -26,24 +36,23 @@ if df is not None:
     upcoming_tasks = df[(df['START'] >= today) & (df['START'] <= future_date)].sort_values(by='START')
     recent_tasks = df[(df['START'] < today) & (df['START'] >= past_date)].sort_values(by='START', ascending=False)
     
-    # Define the colors for each status
-    status_colors = {
-        "NOT STARTED": "red",
-        "IN PROGRESS": "orange", # Using orange for better visibility than yellow
-        "COMPLETE": "green"
-    }
-    
     col1, col2 = st.columns(2)
     with col1:
         st.subheader(f"Starting in Next {num_days} Days")
         if not upcoming_tasks.empty:
             # Loop through each task and create an expander
             for index, row in upcoming_tasks.iterrows():
+                # Get the icon for the task's bucket
+                bucket = row.get('PLANNER BUCKET', 'Default')
+                icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
+                
                 status = row.get('PROGRESS', 'NOT STARTED')
-                color = status_colors.get(status, "grey") # Default to grey for any other status
+                status_colors = {"NOT STARTED": "red", "IN PROGRESS": "orange", "COMPLETE": "green"}
+                color = status_colors.get(status, "grey")
                 status_display = f":{color}[{status}]"
                 
-                with st.expander(f"{row['START'].strftime('%m-%d-%Y, %A')} - {row['TASK']} - {status_display}"):
+                # UPDATED: Changed the color of the date using markdown
+                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - {status_display}"):
                     st.markdown(f"**Assigned To:** {row['ASSIGNMENT TITLE']}")
                     st.markdown(f"**Planner Bucket:** {row['PLANNER BUCKET']}")
                     st.markdown(f"**Audience:** {row['AUDIENCE']}")
@@ -55,15 +64,23 @@ if df is not None:
         if not recent_tasks.empty:
             # Loop through each task and create an expander
             for index, row in recent_tasks.iterrows():
+                # Get the icon for the task's bucket
+                bucket = row.get('PLANNER BUCKET', 'Default')
+                icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
+
                 status = row.get('PROGRESS', 'NOT STARTED')
+                status_colors = {"NOT STARTED": "red", "IN PROGRESS": "orange", "COMPLETE": "green"}
                 color = status_colors.get(status, "grey")
                 status_display = f":{color}[{status}]"
 
-                with st.expander(f"{row['START'].strftime('%m-%d-%Y, %A')} - {row['TASK']} - {status_display}"):
+                # UPDATED: Changed the color of the date using markdown
+                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - {status_display}"):
                     st.markdown(f"**Assigned To:** {row['ASSIGNMENT TITLE']}")
                     st.markdown(f"**Planner Bucket:** {row['PLANNER BUCKET']}")
                     st.markdown(f"**Audience:** {row['AUDIENCE']}")
         else:
             st.info("No tasks started in this period.")
 else:
-    st.warning("Could not load data from the database.")
+    st.warning("Could not load data.")
+
+

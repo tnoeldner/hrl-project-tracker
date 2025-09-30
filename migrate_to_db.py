@@ -2,7 +2,11 @@
 import pandas as pd
 import json
 from sqlalchemy import create_engine
-from getpass import getpass # Used to securely ask for a password
+
+# --- IMPORTANT ---
+# Paste the Supabase "Transaction Pooler" connection string you copied here.
+# Make sure to replace [YOUR-PASSWORD] with your actual database password.
+CONNECTION_STRING = "postgresql://postgres.eypaunoseudvofjcanmn:etiOBFgjTqqkAfUv@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
 
 def migrate():
     """
@@ -10,31 +14,47 @@ def migrate():
     to the new cloud database.
     """
     print("Starting cloud migration...")
-
-    # --- Securely Get Connection Details ---
-    # The base connection string WITHOUT the password
-    base_connection_uri = "postgresql://postgres.eypaunoseudvofjcanmn:[YOUR-PASSWORD]@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
-    
-    # Prompt the user to enter the password securely
-    db_password = getpass("Please paste your Supabase database password: ")
-    
-    # Construct the final connection string
-    connection_string = base_connection_uri.replace("[YOUR-PASSWORD]", db_password)
+    excel_path = 'Project Tracker.xlsx'
+    users_path = 'users.json'
+    settings_path = 'user_settings.json'
 
     try:
-        engine = create_engine(connection_string)
-        # Test the connection
-        connection = engine.connect()
+        engine = create_engine(CONNECTION_STRING)
         print("Successfully connected to cloud database.")
-        connection.close()
 
-        # --- Migration Logic ---
-        excel_path = 'Project Tracker.xlsx'
-        users_path = 'users.json'
-        settings_path = 'user_settings.json'
+        # --- Migrate Tasks from Excel ---
+        print("Migrating tasks from Excel...")
+        df_tasks = pd.read_excel(excel_path, sheet_name='DATA')
+        df_tasks['START'] = pd.to_datetime(df_tasks['START'].astype(str).str.split(' ').str[0], errors='coerce')
+        df_tasks['END'] = pd.to_datetime(df_tasks['END'].astype(str).str.split(' ').str[0], errors='coerce')
+        df_tasks.to_sql('tasks', engine, if_exists='replace', index=False)
+        print(f"Successfully migrated {len(df_tasks)} tasks.")
 
-        # (The rest of the migration logic remains the same)
-        # ...
+        # --- Migrate Users from JSON ---
+        print("Migrating users from users.json...")
+        with open(users_path, 'r') as f:
+            users_data = json.load(f)
+        users_list = [{'email': email, **data} for email, data in users_data.items()]
+        df_users = pd.DataFrame(users_list)
+        df_users.to_sql('users', engine, if_exists='replace', index=False)
+        print(f"Successfully migrated {len(df_users)} users.")
+
+        # --- Migrate Settings from JSON ---
+        print("Migrating settings from user_settings.json...")
+        with open(settings_path, 'r') as f:
+            settings_data = json.load(f)
+        settings_list = [{'email': email, **data} for email, data in settings_data.items()]
+        df_settings = pd.DataFrame(settings_list)
+        df_settings.to_sql('settings', engine, if_exists='replace', index=False)
+        print(f"Successfully migrated {len(df_settings)} user settings.")
+        
+        # --- Create Changelog, Comments, and Notifications Tables ---
+        print("Creating additional tables...")
+        pd.DataFrame(columns=['Timestamp', 'Action', 'Task ID', 'Field Changed', 'Old Value', 'New Value']).to_sql('changelog', engine, if_exists='replace', index=False)
+        pd.DataFrame(columns=['comment_id', 'task_id', 'user_email', 'timestamp', 'comment_text']).to_sql('comments', engine, if_exists='replace', index=False)
+        pd.DataFrame(columns=['notification_id', 'user_email', 'message', 'is_read', 'timestamp']).to_sql('notifications', engine, if_exists='replace', index=False)
+        pd.DataFrame(columns=["bucket_name", "icon"]).to_sql('bucket_icons', engine, if_exists='replace', index=False)
+        print("Additional tables created.")
 
         print("\nCloud migration complete!")
 
