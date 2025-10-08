@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import data_manager
+import ics_export
 
 # --- AUTHENTICATION CHECK ---
 if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
@@ -117,6 +118,28 @@ if df_original is not None and users_df is not None:
             st.rerun()
         else:
             st.error("Failed to save edits.")
+    
+    # --- ICS EXPORT FOR FILTERED TASKS / SELECTED TASK ---
+    st.markdown("---")
+    st.subheader("Export to Calendar (.ics)")
+    exp_col1, exp_col2 = st.columns(2)
+    with exp_col1:
+        if st.button("📥 Download .ics for filtered tasks"):
+            export_df = filtered_df.copy()
+            # Keep only rows with valid start and end dates
+            export_df = export_df[pd.notna(export_df['START']) & pd.notna(export_df['END'])]
+            ics_bytes = ics_export.generate_ics_from_df(export_df)
+            st.download_button(label="Download filtered_tasks.ics", data=ics_bytes, file_name="filtered_tasks_calendar.ics", mime="text/calendar", key="download_filtered_ics")
+    with exp_col2:
+        if 'selected_task_rows' in locals() and not selected_task_rows.empty and len(selected_task_rows) == 1:
+            sel = selected_task_rows.iloc[0]
+            if st.button("📥 Download .ics for selected task"):
+                single_df = df_original[df_original['#'] == sel['#']].copy()
+                ics_bytes = ics_export.generate_ics_from_df(single_df)
+                filename = f"task_{int(sel['#'])}.ics"
+                st.download_button(label=f"Download .ics for task #{int(sel['#'])}", data=ics_bytes, file_name=filename, mime="text/calendar", key=f"download_task_ics_{int(sel['#'])}")
+        else:
+            st.write("Select a task's 'Details' checkbox to enable single-task .ics download.")
 else:
     st.warning("Could not load data from the database.")
 

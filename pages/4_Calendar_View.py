@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 from streamlit_calendar import calendar
 import data_manager
+import ics_export
 
 # --- AUTHENTICATION CHECK ---
 if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
@@ -76,6 +77,28 @@ if df_original is not None and icons_df is not None:
             })
 
     clicked_event = calendar(events=tasks_for_calendar)
+
+    # --- ICS EXPORT CONTROLS ---
+    st.markdown("---")
+    st.subheader("Export Calendar")
+    export_col1, export_col2 = st.columns([1, 1])
+    with export_col1:
+        if st.button("📥 Download .ics for all visible tasks"):
+            # Build a DataFrame of the visible tasks (those with START/END)
+            export_df = df_cal.copy()
+            # Keep only rows with valid dates
+            export_df = export_df[pd.notna(export_df['START']) & pd.notna(export_df['END'])]
+            ics_bytes = ics_export.generate_ics_from_df(export_df)
+            st.download_button(label="Download calendar.ics", data=ics_bytes, file_name="hrl_project_tracker_calendar.ics", mime="text/calendar")
+    with export_col2:
+        if 'selected_task_id' in st.session_state and st.session_state['selected_task_id'] is not None:
+            task_id = st.session_state['selected_task_id']
+            if task_id in df_original.index:
+                if st.button("📥 Download .ics for selected task"):
+                    single_df = df_original.loc[[task_id]].copy()
+                    ics_bytes = ics_export.generate_ics_from_df(single_df)
+                    filename = f"task_{int(task_id)}.ics"
+                    st.download_button(label=f"Download .ics for task #{int(task_id)}", data=ics_bytes, file_name=filename, mime="text/calendar")
 
     if clicked_event and clicked_event.get('callback') == 'eventClick':
         task_id = clicked_event['eventClick']['event'].get('id')

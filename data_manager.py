@@ -2,20 +2,67 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 from datetime import datetime
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import os
 
 # --- Database Connection ---
-DB_CONNECTION_STRING = st.secrets["db_connection_string"]
+# Try Streamlit secrets, then environment variable, then fall back to local sqlite file
+def _get_secret(key, default=None):
+    """Safe secret getter: try Streamlit secrets, then environment variables, then default."""
+    try:
+        # st.secrets may raise if no secrets.toml is present; guard it
+        val = st.secrets.get(key)
+        if val is not None:
+            return val
+    except Exception:
+        pass
+    return os.environ.get(key, default)
+
+
+# Determine DB connection string
+DB_CONNECTION_STRING = _get_secret('db_connection_string')
+if not DB_CONNECTION_STRING:
+    project_root = os.path.dirname(__file__)
+    default_db_path = os.path.join(project_root, 'project_tracker.db')
+    DB_CONNECTION_STRING = f"sqlite:///{default_db_path}"
+    try:
+        st.warning(f"No Streamlit secrets found; falling back to local SQLite DB at {default_db_path}")
+    except Exception:
+        # When running outside of Streamlit runtime, ignore warnings
+        pass
+
 engine = create_engine(DB_CONNECTION_STRING)
 
+# Flag to indicate we auto-created the bucket_icons table on this run
+BUCKET_ICONS_AUTO_CREATED = False
+# Flag to indicate we auto-created the notifications table on this run
+NOTIFICATIONS_AUTO_CREATED = False
+
+def pop_bucket_icons_auto_created():
+    """Return True if bucket_icons was auto-created during this process, then reset the flag."""
+    global BUCKET_ICONS_AUTO_CREATED
+    val = BUCKET_ICONS_AUTO_CREATED
+    BUCKET_ICONS_AUTO_CREATED = False
+    return val
+
+
+def pop_notifications_auto_created():
+    """Return True if notifications was auto-created during this process, then reset the flag."""
+    global NOTIFICATIONS_AUTO_CREATED
+    val = NOTIFICATIONS_AUTO_CREATED
+    NOTIFICATIONS_AUTO_CREATED = False
+    return val
+
 # --- Email Configuration ---
-SENDER_EMAIL = st.secrets.get("SENDER_EMAIL")
-SENDER_PASSWORD = st.secrets.get("SENDER_PASSWORD")
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
+# Use the safe _get_secret so missing secrets don't raise on import
+SENDER_EMAIL = _get_secret('SENDER_EMAIL')
+SENDER_PASSWORD = _get_secret('SENDER_PASSWORD')
+SMTP_SERVER = _get_secret('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(_get_secret('SMTP_PORT', 587))
 
 # --- THE STABLE DATA LOADING FUNCTION ---
 def load_table(table_name):
@@ -38,7 +85,77 @@ def load_table(table_name):
             
         return df
     except Exception as e:
-        st.error(f"Failed to load table '{table_name}'. Is your database set up? Error: {e}")
+        # Auto-create the bucket_icons table if it doesn't exist (common first-run issue)
+        msg = str(e).lower()
+        if table_name == 'bucket_icons' and ('no such table' in msg or isinstance(e, OperationalError)):
+            try:
+                # Try to build icons from existing tasks table
+                tasks_df = None
+                try:
+                    tasks_df = load_table('tasks')
+                except Exception:
+                    tasks_df = None
+
+                if tasks_df is not None and not tasks_df.empty:
+                    buckets = sorted(set(tasks_df['PLANNER BUCKET'].dropna().unique()))
+                    if buckets:
+                        icons_df = pd.DataFrame([{'bucket_name': b, 'icon': '📌'} for b in buckets])
+                    else:
+                        icons_df = pd.DataFrame([{'bucket_name': 'Default', 'icon': '📌'}])
+                else:
+                    icons_df = pd.DataFrame([{'bucket_name': 'Default', 'icon': '📌'}])
+
+                # Mark that we auto-created this table during this run
+                global BUCKET_ICONS_AUTO_CREATED
+                BUCKET_ICONS_AUTO_CREATED = True
+                if save_table(icons_df, 'bucket_icons'):
+                    append_changelog_entry(action='ADD', source='Auto-Create', field_changed='bucket_icons', old_value='', new_value=f'Created {len(icons_df)} buckets', user='system')
+                    return icons_df
+                return None
+            except Exception as ee:
+                # If creation fails, show the original error as well as the creation error
+                try:
+                    st.error(f"Failed to create default 'bucket_icons' table. Original error: {e}; Creation error: {ee}")
+                except Exception:
+                    pass
+                return None
+
+        # Auto-create a basic notifications table if missing
+        if table_name == 'notifications' and ('no such table' in msg or isinstance(e, OperationalError)):
+            try:
+                notifications_df = pd.DataFrame(columns=['notification_id', 'user_email', 'message', 'is_read', 'timestamp'])
+                global NOTIFICATIONS_AUTO_CREATED
+                NOTIFICATIONS_AUTO_CREATED = True
+                if save_table(notifications_df, 'notifications'):
+                    append_changelog_entry(action='ADD', source='Auto-Create', field_changed='notifications', old_value='', new_value='Created notifications table', user='system')
+                    return notifications_df
+                return None
+            except Exception as ee:
+                try:
+                    st.error(f"Failed to create default 'notifications' table. Original error: {e}; Creation error: {ee}")
+                except Exception:
+                    pass
+                return None
+        # Auto-create a basic comments table if missing
+        if table_name == 'comments' and ('no such table' in msg or isinstance(e, OperationalError)):
+            try:
+                comments_df = pd.DataFrame(columns=['comment_id', 'task_id', 'user_email', 'timestamp', 'comment_text'])
+                if save_table(comments_df, 'comments'):
+                    append_changelog_entry(action='ADD', source='Auto-Create', field_changed='comments', old_value='', new_value='Created comments table', user='system')
+                    return comments_df
+                return None
+            except Exception as ee:
+                try:
+                    st.error(f"Failed to create default 'comments' table. Original error: {e}; Creation error: {ee}")
+                except Exception:
+                    pass
+                return None
+
+        try:
+            st.error(f"Failed to load table '{table_name}'. Is your database set up? Error: {e}")
+        except Exception:
+            # If Streamlit isn't available, just print to stdout
+            print(f"Failed to load table '{table_name}'. Error: {e}")
         return None
 
 # --- THE STABLE DATA SAVING FUNCTION ---
@@ -54,6 +171,33 @@ def save_table(df, table_name):
         return True
     except Exception as e:
         st.error(f"Error saving table '{table_name}': {e}")
+        return False
+
+
+def append_changelog_entry(action, source, field_changed, old_value, new_value, user="system"):
+    """Append a single changelog entry to the changelog table."""
+    try:
+        changelog_df = load_table('changelog')
+        if changelog_df is None:
+            changelog_df = pd.DataFrame()
+        entry = {
+            'Timestamp': datetime.now(),
+            'Action': action,
+            'Task ID': 'N/A',
+            'User': user,
+            'Source': source,
+            'Field Changed': field_changed,
+            'Old Value': old_value,
+            'New Value': new_value
+        }
+        combined = pd.concat([changelog_df, pd.DataFrame([entry])], ignore_index=True)
+        save_table(combined, 'changelog')
+        return True
+    except Exception as e:
+        try:
+            st.error(f"Failed to append changelog entry: {e}")
+        except Exception:
+            pass
         return False
 
 # --- FULLY IMPLEMENTED CHANGELOG FUNCTION ---

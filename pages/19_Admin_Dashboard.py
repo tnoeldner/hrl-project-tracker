@@ -18,6 +18,25 @@ st.set_page_config(page_title="Admin Dashboard", layout="wide")
 st.title("👑 Admin Dashboard")
 st.info("This dashboard provides tools for managing application-wide settings.")
 
+# Notify admin if bucket_icons was auto-created on startup
+try:
+    created = []
+    if data_manager.pop_bucket_icons_auto_created():
+        created.append("bucket_icons")
+    # check notifications flag too (we added a similar flag)
+    try:
+        if data_manager.pop_notifications_auto_created():
+            created.append('notifications')
+    except Exception:
+        # If the flag doesn't exist, ignore
+        pass
+
+    if created:
+        st.info(f"The following tables were missing and have been auto-created: {', '.join(created)}. You can review and edit them below.")
+except Exception:
+    # If for some reason the flag isn't available, silently ignore
+    pass
+
 # Load all necessary data tables at the beginning
 icons_df_original = data_manager.load_table('bucket_icons')
 tasks_df_original = data_manager.load_table('tasks')
@@ -247,6 +266,12 @@ if all(df is not None for df in [icons_df_original, tasks_df_original, users_df_
     with tab4:
         st.header("📜 View Changelog")
         st.write("This log shows all data changes made within the application.")
+
+    with st.expander("Calendar Subscription (Outlook)"):
+        st.write("You can run a small local server that serves a dynamic .ics subscription endpoint compatible with Outlook.")
+        st.markdown("- Start the server: `python calendar_server.py` (installs: Flask required).")
+        st.markdown("- Default subscription URL: `http://localhost:5005/calendar.ics`")
+        st.info("To include only a specific planner bucket, append `?bucket=YourBucketName` to the URL. To filter by fiscal year, append `?year=2025`.")
         
         if not changelog_df_original.empty:
             changelog_df_original['Timestamp'] = pd.to_datetime(changelog_df_original['Timestamp'])
