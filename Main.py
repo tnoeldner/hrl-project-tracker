@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import data_manager
+from datetime import datetime
 
 # --- AUTHENTICATION FUNCTIONS (using the database) ---
 
@@ -135,3 +136,5 @@ else:
 
     **To get started, please select a view from the navigation menu in the sidebar on the left.**
     """)
+    
+st.write("App loaded at:", datetime.now().isoformat())

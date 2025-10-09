@@ -49,6 +49,55 @@ if all(df is not None for df in [icons_df_original, tasks_df_original, users_df_
     
     user_email = st.session_state.logged_in_user
 
+    # --- Admin calendar debug: generate/publish ICS on demand ---
+    with st.expander("Calendar (.ics) Debug / Force Generate"):
+        st.write("Use this to force-create the calendar.ics from current tasks and show the result (local path or S3 URL).")
+        if st.button("Generate .ics now"):
+            try:
+                result = data_manager.generate_and_publish_ics(tasks_df_original)
+                st.success("Calendar generated/published")
+                st.write(result)
+            except Exception as e:
+                st.error(f"Failed to generate/publish calendar: {e}")
+
+    # --- Filter presets inspector ---
+    with st.expander("Filter Presets Inspector"):
+        st.write("Inspect and manage saved filter presets stored in the database.")
+        all_presets = data_manager.load_table('filter_presets')
+        if all_presets is None or all_presets.empty:
+            st.info("No filter presets found.")
+        else:
+            # Normalize display of created_at
+            if 'created_at' in all_presets.columns:
+                try:
+                    all_presets['created_at'] = pd.to_datetime(all_presets['created_at'], errors='coerce')
+                except Exception:
+                    pass
+
+            search_user = st.text_input("Filter by user email (leave blank to show all)")
+            search_name = st.text_input("Filter by preset name (partial match)")
+
+            filtered = all_presets.copy()
+            if search_user:
+                filtered = filtered[filtered['user_email'].str.contains(search_user, case=False, na=False)]
+            if search_name:
+                filtered = filtered[filtered['preset_name'].str.contains(search_name, case=False, na=False)]
+
+            st.dataframe(filtered.sort_values(by='created_at', ascending=False), use_container_width=True)
+
+            # Allow deletion of a selected preset
+            st.markdown("**Delete a preset**")
+            preset_ids = filtered['preset_id'].astype(str).tolist()
+            if preset_ids:
+                choice = st.selectbox("Select preset_id to delete", options=['--'] + preset_ids)
+                if st.button("Delete selected preset") and choice and choice != '--':
+                    row = filtered[filtered['preset_id'].astype(str) == choice].iloc[0]
+                    if data_manager.delete_filter_preset(row['user_email'], row['preset_name']):
+                        st.success("Preset deleted")
+                        st.experimental_rerun()
+                    else:
+                        st.error("Failed to delete preset. See logs.")
+
     # Create four tabs for the different admin functions
     tab1, tab2, tab3, tab4 = st.tabs(["Manage Planner Buckets", "Manage User Settings", "Manage Assignment Titles", "View Changelog"])
 

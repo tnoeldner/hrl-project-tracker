@@ -1,5 +1,6 @@
 # File: data_manager.py
 import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
@@ -7,35 +8,51 @@ from datetime import datetime
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from icalendar import Calendar, Event
+import uuid
 import os
+import json
+import sqlite3
+try:
+    import boto3
+    from botocore.exceptions import BotoCoreError, NoCredentialsError
+    _BOTO3_AVAILABLE = True
+except Exception:
+    _BOTO3_AVAILABLE = False
+
+def _safe_secret(key, default=None):
+    """Return secret value or default without raising if secrets.toml is missing."""
+    try:
+        # Use indexing to allow Streamlit's secrets mapping to raise if key missing,
+        # but catch the 'no secrets file' condition which raises StreamlitSecretNotFoundError.
+        return st.secrets[key]
+    except StreamlitSecretNotFoundError:
+        return default
+    except Exception:
+        # Any other issue (missing key) -> return default
+        return default
 
 # --- Database Connection ---
-# Try Streamlit secrets, then environment variable, then fall back to local sqlite file
-def _get_secret(key, default=None):
-    """Safe secret getter: try Streamlit secrets, then environment variables, then default."""
-    try:
-        # st.secrets may raise if no secrets.toml is present; guard it
-        val = st.secrets.get(key)
-        if val is not None:
-            return val
-    except Exception:
-        pass
-    return os.environ.get(key, default)
+# Prefer explicit secret access but handle missing secrets.toml gracefully.
+DB_CONNECTION_STRING = _safe_secret("db_connection_string")
 
-
-# Determine DB connection string
-DB_CONNECTION_STRING = _get_secret('db_connection_string')
+# Fallback to a local SQLite file for development if no connection string is provided.
 if not DB_CONNECTION_STRING:
-    project_root = os.path.dirname(__file__)
-    default_db_path = os.path.join(project_root, 'project_tracker.db')
-    DB_CONNECTION_STRING = f"sqlite:///{default_db_path}"
+    base_dir = os.path.dirname(__file__)
+    sqlite_path = os.path.join(base_dir, 'project_tracker.db')
+    DB_CONNECTION_STRING = f"sqlite:///{sqlite_path}"
+    # Avoid raising during import; show a friendly informational message if Streamlit is running
     try:
-        st.warning(f"No Streamlit secrets found; falling back to local SQLite DB at {default_db_path}")
+        st.info(f"No Streamlit secrets found; using local SQLite DB at {sqlite_path}")
     except Exception:
-        # When running outside of Streamlit runtime, ignore warnings
+        # If st isn't fully initialized (tests, import-time), don't fail.
         pass
 
-engine = create_engine(DB_CONNECTION_STRING)
+# For sqlite, include connect_args to be safe in multi-threaded contexts
+if DB_CONNECTION_STRING.startswith('sqlite'):
+    engine = create_engine(DB_CONNECTION_STRING, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DB_CONNECTION_STRING)
 
 # Flag to indicate we auto-created the bucket_icons table on this run
 BUCKET_ICONS_AUTO_CREATED = False
@@ -58,11 +75,11 @@ def pop_notifications_auto_created():
     return val
 
 # --- Email Configuration ---
-# Use the safe _get_secret so missing secrets don't raise on import
-SENDER_EMAIL = _get_secret('SENDER_EMAIL')
-SENDER_PASSWORD = _get_secret('SENDER_PASSWORD')
-SMTP_SERVER = _get_secret('SMTP_SERVER', 'smtp.gmail.com')
-SMTP_PORT = int(_get_secret('SMTP_PORT', 587))
+# Use the safe _safe_secret so missing secrets don't raise on import
+SENDER_EMAIL = _safe_secret("SENDER_EMAIL")
+SENDER_PASSWORD = _safe_secret("SENDER_PASSWORD")
+SMTP_SERVER = _safe_secret("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(_safe_secret("SMTP_PORT", 587))
 
 # --- THE STABLE DATA LOADING FUNCTION ---
 def load_table(table_name):
@@ -260,7 +277,17 @@ def save_and_log_changes(original_df, updated_df, user_email="system", source_pa
             save_table(combined_log, 'changelog')
         
         # Finally, save the updated tasks table
-        return save_table(updated_df, 'tasks')
+        saved = save_table(updated_df, 'tasks')
+
+        # If save succeeded, regenerate public ICS calendar (best-effort)
+        if saved:
+            try:
+                generate_and_publish_ics(updated_df)
+            except Exception as e:
+                # Non-fatal: ICS generation/publish should not block data save
+                st.warning(f"Calendar (.ics) generation failed: {e}")
+
+        return saved
 
     except Exception as e:
         st.error(f"Error during save and log operation: {e}")
@@ -388,4 +415,193 @@ def get_unread_notifications(user_email):
     if notifications_df is not None:
         return notifications_df[(notifications_df['user_email'] == user_email) & (notifications_df['is_read'] == False)]
     return pd.DataFrame()
+
+
+# --- Filter preset helpers (per-user) ---
+def get_filter_presets(user_email):
+    """Return a DataFrame of saved filter presets for the given user."""
+    try:
+        df = load_table('filter_presets')
+        if df is None or df.empty:
+            return pd.DataFrame()
+        return df[df['user_email'] == user_email].sort_values(by='created_at', ascending=False)
+    except Exception:
+        return pd.DataFrame()
+
+
+def save_filter_preset(user_email, preset_name, years_list, buckets_list):
+    """Save or update a named preset for a user. years_list and buckets_list are lists.
+
+    Returns True on success.
+    """
+    try:
+        presets_df = load_table('filter_presets')
+        if presets_df is None:
+            presets_df = pd.DataFrame(columns=['preset_id','user_email','preset_name','years','buckets','created_at'])
+
+        # JSON-encode lists for storage
+        years_json = json.dumps(years_list or [])
+        buckets_json = json.dumps(buckets_list or [])
+
+        # If preset exists for user+name, update it; otherwise append
+        match = (presets_df['user_email'] == user_email) & (presets_df['preset_name'] == preset_name)
+        if not presets_df.empty and match.any():
+            presets_df.loc[match, 'years'] = years_json
+            presets_df.loc[match, 'buckets'] = buckets_json
+            # Store created_at as ISO string to avoid sqlite/binding issues with pandas.Timestamp
+            presets_df.loc[match, 'created_at'] = datetime.now().isoformat()
+        else:
+            new_id = int(presets_df['preset_id'].max()) + 1 if (not presets_df.empty and 'preset_id' in presets_df.columns) else 1
+            new_row = {'preset_id': new_id, 'user_email': user_email, 'preset_name': preset_name, 'years': years_json, 'buckets': buckets_json, 'created_at': datetime.now().isoformat()}
+            presets_df = pd.concat([presets_df, pd.DataFrame([new_row])], ignore_index=True)
+
+        # Normalize created_at column to ISO strings for all rows to avoid sqlite binding errors
+        if 'created_at' in presets_df.columns:
+            try:
+                presets_df['created_at'] = presets_df['created_at'].apply(
+                    lambda v: v.isoformat() if hasattr(v, 'isoformat') else (str(v) if pd.notna(v) else None)
+                )
+            except Exception:
+                # Fallback: cast to string
+                presets_df['created_at'] = presets_df['created_at'].astype(str)
+
+        return save_table(presets_df, 'filter_presets')
+    except Exception as e:
+        try: st.warning(f"Failed to save preset: {e}")
+        except Exception: pass
+        return False
+
+
+def delete_filter_preset(user_email, preset_name):
+    """Delete a named preset for a user."""
+    try:
+        presets_df = load_table('filter_presets')
+        if presets_df is None or presets_df.empty:
+            return False
+        updated = presets_df[~((presets_df['user_email'] == user_email) & (presets_df['preset_name'] == preset_name))]
+        # Normalize created_at column to strings if present
+        if 'created_at' in updated.columns:
+            try:
+                updated['created_at'] = updated['created_at'].apply(
+                    lambda v: v.isoformat() if hasattr(v, 'isoformat') else (str(v) if pd.notna(v) else None)
+                )
+            except Exception:
+                updated['created_at'] = updated['created_at'].astype(str)
+        return save_table(updated, 'filter_presets')
+    except Exception as e:
+        try: st.warning(f"Failed to delete preset: {e}")
+        except Exception: pass
+        return False
+
+
+# --- iCalendar generation & publishing ---
+def generate_calendar_from_tasks(tasks_df):
+    """Return an icalendar.Calendar built from the tasks DataFrame."""
+    cal = Calendar()
+    cal.add('prodid', '-//HRL Project Tracker//mxm.dk//')
+    cal.add('version', '2.0')
+
+    if tasks_df is None or tasks_df.empty:
+        return cal
+
+    for _, row in tasks_df.iterrows():
+        # Only include tasks with start or end
+        start = row.get('START')
+        end = row.get('END')
+        if pd.isna(start) and pd.isna(end):
+            continue
+
+        ev = Event()
+        uid_val = str(row.get('#', uuid.uuid4()))
+        ev.add('uid', uid_val + '@hrl-project-tracker')
+        ev.add('summary', str(row.get('TASK', 'No Title')))
+        if pd.notna(start):
+            # icalendar expects datetime/date objects
+            ev.add('dtstart', start)
+        if pd.notna(end):
+            # Increment end by one day if it's a date to be inclusive? Keep as-is.
+            ev.add('dtend', end)
+        # Add description with some helpful fields
+        desc = []
+        desc.append(f"Planner Bucket: {row.get('PLANNER BUCKET', '')}")
+        desc.append(f"Assignment Title: {row.get('ASSIGNMENT TITLE', '')}")
+        desc.append(f"Progress: {row.get('PROGRESS', '')}")
+        ev.add('description', '\n'.join(desc))
+        cal.add_component(ev)
+
+    return cal
+
+
+def generate_and_publish_ics(tasks_df, local_path='calendar.ics'):
+    """Generate an .ics file from tasks_df and either upload to S3 (if configured) or write locally.
+
+    Behavior:
+    - If st.secrets contains a section `S3` with keys `BUCKET`, `KEY_PREFIX` (optional),
+      `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (or use IAM role), the function will upload
+      the generated calendar to that S3 bucket and return the public HTTPS URL.
+    - Otherwise, it writes a local `calendar.ics` next to the running script and returns the path.
+
+    This function is best-effort and will not raise on upload errors (it will raise only on programming errors).
+    """
+    cal = generate_calendar_from_tasks(tasks_df)
+
+    ics_bytes = cal.to_ical()
+
+    # Prefer S3 publish if configured and boto3 available
+    s3_info = None
+    try:
+        s3_info = st.secrets.get('S3')
+    except Exception:
+        s3_info = None
+
+    if s3_info and _BOTO3_AVAILABLE:
+        bucket = s3_info.get('BUCKET')
+        key_prefix = s3_info.get('KEY_PREFIX', '')
+        key_name = (key_prefix.rstrip('/') + '/' if key_prefix else '') + 'calendar.ics'
+
+        # Build boto3 client using provided credentials if available
+        try:
+            if s3_info.get('AWS_ACCESS_KEY_ID') and s3_info.get('AWS_SECRET_ACCESS_KEY'):
+                s3 = boto3.client('s3', aws_access_key_id=s3_info.get('AWS_ACCESS_KEY_ID'), aws_secret_access_key=s3_info.get('AWS_SECRET_ACCESS_KEY'))
+            else:
+                s3 = boto3.client('s3')
+
+            s3.put_object(Bucket=bucket, Key=key_name, Body=ics_bytes, ContentType='text/calendar', ACL='public-read')
+            # Construct URL (note: this may vary by region or hosting settings)
+            url = f"https://{bucket}.s3.amazonaws.com/{key_name}"
+            return url
+        except (BotoCoreError, NoCredentialsError) as e:
+            # Fall through to local write
+            st.warning(f"S3 upload failed or not configured properly: {e}")
+        except Exception as e:
+            st.warning(f"S3 upload failed: {e}")
+
+    # Fallback: write local file
+    try:
+        base_dir = os.path.dirname(__file__)
+        out_path = os.path.join(base_dir, local_path)
+        with open(out_path, 'wb') as f:
+            f.write(ics_bytes)
+        return out_path
+    except Exception as e:
+        raise
+
+# --- Database integrity check (development use) ---
+def check_database_integrity():
+    """Check and report the number of rows in critical tables."""
+    try:
+        conn = sqlite3.connect('project_tracker.db')
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cur.fetchall()
+        table_info = {}
+        for t in ['tasks','bucket_icons','users','settings','changelog']:
+            cur.execute(f"SELECT COUNT(*) FROM sqlite_master WHERE name='{t}';")
+            count = cur.fetchone()
+            table_info[t] = count[0] if count else 0
+        conn.close()
+        return table_info
+    except Exception as e:
+        st.error(f"Database integrity check failed: {e}")
+        return None
 

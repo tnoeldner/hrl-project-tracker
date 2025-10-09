@@ -12,3 +12,6 @@ xlsxwriter
 requests
 toml
 flask
+icalendar
+boto3
+kaleido

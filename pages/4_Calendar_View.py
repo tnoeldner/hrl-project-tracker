@@ -1,6 +1,20 @@
 # File: pages/4_Calendar_View.py
 import streamlit as st
 import pandas as pd
+import json
+
+def _safe_rerun():
+    """Call Streamlit rerun in a way that's tolerant of older/newer Streamlit versions."""
+    try:
+        # Preferred API
+        st.experimental_rerun()
+    except Exception:
+        try:
+            # Older versions may not have experimental_rerun; use stop to force refresh on next interaction
+            st.session_state['_needs_rerun'] = True
+            st.stop()
+        except Exception:
+            pass
 from streamlit_calendar import calendar
 import data_manager
 import ics_export
@@ -17,9 +31,169 @@ st.title("📅 Calendar View")
 df_original = data_manager.load_table('tasks')
 icons_df = data_manager.load_table('bucket_icons')
 
-if df_original is not None and icons_df is not None:
-    st.info("Tasks are color-coded by Fiscal Year and include an icon for the Planner Bucket. Click any task to edit.")
-    
+# --- Filters: Fiscal Year and Planner Bucket ---
+df_filtered = None
+if df_original is not None:
+    # ensure fiscal year numeric for filter options
+    df_original['Fiscal Year'] = pd.to_numeric(df_original.get('Fiscal Year', pd.Series()), errors='coerce')
+    available_years = sorted(df_original['Fiscal Year'].dropna().unique().tolist())
+    available_years_str = [int(y) for y in available_years]
+
+    # Planner buckets from icons_df if available, otherwise from tasks
+    if icons_df is not None and 'bucket_name' in icons_df.columns:
+        available_buckets = sorted(icons_df['bucket_name'].dropna().unique().tolist())
+    else:
+        available_buckets = sorted(df_original['PLANNER BUCKET'].dropna().unique().tolist())
+
+    # Presets: show apply/clear controls BEFORE the filter widgets so we can set session_state safely
+    user_email = st.session_state.logged_in_user
+    presets_df = data_manager.get_filter_presets(user_email)
+
+    # Ensure a persistent key for the preset choice so it survives reruns
+    preset_key = 'calendar_preset_choice'
+    if preset_key not in st.session_state:
+        st.session_state[preset_key] = '--'
+
+    # If there's a pending apply/clear action from the previous run, perform it now BEFORE creating widgets
+    if '__apply_preset_action__' in st.session_state:
+        try:
+            action = st.session_state.pop('__apply_preset_action__')
+            year_key = 'calendar_selected_years'
+            bucket_key = 'calendar_selected_buckets'
+            if action == '__CLEAR__':
+                st.session_state[year_key] = available_years_str
+                st.session_state[bucket_key] = available_buckets
+                # ensure the Filters expander is open so users see the cleared selection
+                st.session_state['calendar_filters_open'] = True
+                # set the preset selector to '--' before widgets are created
+                st.session_state[preset_key] = '--'
+            else:
+                preset_rows = presets_df[presets_df['preset_name'] == action]
+                if not preset_rows.empty:
+                    preset_row = preset_rows.iloc[0]
+                    yrs_raw = preset_row.get('years', None)
+                    bks_raw = preset_row.get('buckets', None)
+                    yrs = json.loads(yrs_raw) if (yrs_raw is not None and not pd.isna(yrs_raw) and yrs_raw != '') else []
+                    bks = json.loads(bks_raw) if (bks_raw is not None and not pd.isna(bks_raw) and bks_raw != '') else []
+                    st.session_state[year_key] = yrs
+                    st.session_state[bucket_key] = bks
+                    # set the preset choice key value BEFORE widget creation
+                    st.session_state[preset_key] = action
+                    # open the Filters expander so the applied preset is visible immediately
+                    st.session_state['calendar_filters_open'] = True
+                    # (no rerun here; widgets are created after this block and will read session_state)
+        except Exception as e:
+            st.error(f"Failed to apply pending preset action: {e}")
+
+    apply_col1, apply_col2 = st.columns([3,1])
+    with apply_col1:
+        preset_choice = st.selectbox("Apply Preset", options=['--'] + presets_df['preset_name'].tolist() if not presets_df.empty else ['--'], key=preset_key)
+    with apply_col2:
+        # Apply button (schedules the preset application on next run)
+        if st.button("Apply", key='preset_apply_btn'):
+            # If '--' selected, clear filters (select all) on next run
+            if preset_choice == '--':
+                st.session_state['__apply_preset_action__'] = '__CLEAR__'
+            else:
+                # schedule apply of this preset on next run
+                st.session_state['__apply_preset_action__'] = preset_choice
+        # Explicit clear button so users don't need to select '--' then Apply
+        if st.button("Clear Filters", key='preset_clear_btn'):
+            # schedule the clear action; the pending-action handler will set the preset key
+            st.session_state['__apply_preset_action__'] = '__CLEAR__'
+
+    # UI controls (session_state-backed so presets can change widget values)
+    year_key = 'calendar_selected_years'
+    bucket_key = 'calendar_selected_buckets'
+    if year_key not in st.session_state:
+        st.session_state[year_key] = available_years_str
+    if bucket_key not in st.session_state:
+        st.session_state[bucket_key] = available_buckets
+
+    # Track whether the Filters expander should be open (preset apply/clear will set this)
+    if 'calendar_filters_open' not in st.session_state:
+        st.session_state['calendar_filters_open'] = False
+
+    with st.expander("Filters (affect display & .ics download)", expanded=st.session_state.get('calendar_filters_open', False)):
+        cols = st.columns(2)
+        with cols[0]:
+            selected_years = st.multiselect("Fiscal Year", options=available_years_str, default=st.session_state[year_key], key=year_key)
+        with cols[1]:
+            selected_buckets = st.multiselect("Planner Bucket", options=available_buckets, default=st.session_state[bucket_key], key=bucket_key)
+
+    # Apply filters to create df_filtered
+    df_filtered = df_original.copy()
+    if selected_years:
+        df_filtered = df_filtered[df_filtered['Fiscal Year'].isin(selected_years)]
+    if selected_buckets:
+        df_filtered = df_filtered[df_filtered['PLANNER BUCKET'].isin(selected_buckets)]
+
+    # --- Show number of events included in the filtered download ---
+    try:
+        cal_preview = data_manager.generate_calendar_from_tasks(df_filtered)
+        event_count = sum(1 for c in cal_preview.walk() if c.name == 'VEVENT')
+    except Exception:
+        event_count = 0
+
+    st.write(f"Events in current filter: **{event_count}**")
+
+    # --- Preset management UI ---
+    user_email = st.session_state.logged_in_user
+    presets_df = data_manager.get_filter_presets(user_email)
+
+    cols_presets = st.columns([3,3,2])
+    with cols_presets[0]:
+        st.write("**Saved presets:**")
+        if not presets_df.empty:
+            for name in presets_df['preset_name'].tolist():
+                st.write(f"- {name}")
+        else:
+            st.write("(no presets)")
+    with cols_presets[1]:
+        new_preset_name = st.text_input("Save current filters as...", key='preset_name_input')
+    with cols_presets[2]:
+        if st.button("Save Preset") and new_preset_name:
+            years_to_save = selected_years if 'selected_years' in locals() else []
+            buckets_to_save = selected_buckets if 'selected_buckets' in locals() else []
+            try:
+                saved = data_manager.save_filter_preset(user_email, new_preset_name, years_to_save, buckets_to_save)
+            except Exception as e:
+                st.error(f"Failed to save preset (exception): {e}")
+                saved = False
+
+            if saved:
+                st.success("Preset saved")
+                # Schedule this preset to be applied so the user sees the result immediately
+                st.session_state['__apply_preset_action__'] = new_preset_name
+                st.session_state['calendar_filters_open'] = True
+
+    # Delete preset
+    if not presets_df.empty:
+        del_col1, del_col2 = st.columns([3,1])
+        with del_col1:
+            del_choice = st.selectbox("Delete Preset", options=['--'] + presets_df['preset_name'].tolist())
+        with del_col2:
+            if st.button("Delete") and del_choice and del_choice != '--':
+                if data_manager.delete_filter_preset(user_email, del_choice):
+                    st.success("Preset deleted")
+                    _safe_rerun()
+
+    # (Preset application is handled by the Apply control above, which sets a temp session key and reruns.)
+
+    # --- Export / Download .ics for users (uses filtered data) ---
+    try:
+        cal = data_manager.generate_calendar_from_tasks(df_filtered)
+        ics_bytes = cal.to_ical()
+        st.download_button(label="Download calendar (.ics)", data=ics_bytes, file_name="hrl_project_tracker.ics", mime="text/calendar")
+    except Exception as e:
+        st.warning(f"Could not prepare calendar download: {e}")
+
+if df_filtered is not None and icons_df is not None:
+    if df_filtered.empty:
+        st.info("No tasks match the selected filters.")
+    else:
+        st.info("Tasks are color-coded by Fiscal Year and include an icon for the Planner Bucket. Click any task to edit.")
+
     # --- DYNAMIC ICON MAPPING ---
     # Convert the icons DataFrame to a dictionary for easy lookup
     bucket_icon_map = pd.Series(icons_df.icon.values, index=icons_df.bucket_name).to_dict()
@@ -29,8 +203,8 @@ if df_original is not None and icons_df is not None:
     
     # --- COLOR MAPPING LOGIC ---
     # Ensure Fiscal Year is treated as a number for color mapping
-    df_original['Fiscal Year'] = pd.to_numeric(df_original['Fiscal Year'], errors='coerce')
-    fiscal_years = sorted(df_original['Fiscal Year'].dropna().unique())
+    df_filtered['Fiscal Year'] = pd.to_numeric(df_filtered['Fiscal Year'], errors='coerce')
+    fiscal_years = sorted(df_filtered['Fiscal Year'].dropna().unique())
     color_palette = ["#009A44", "#007BA7", "#E69F00", "#D55E00", "#CC79A7", "#56B4E9", "#F0E442"]
     year_color_map = {year: color_palette[i % len(color_palette)] for i, year in enumerate(fiscal_years)}
 
@@ -53,7 +227,7 @@ if df_original is not None and icons_df is not None:
                  st.markdown(f"{icon} {bucket}")
     st.markdown("---")
 
-    df_cal = df_original.copy()
+    df_cal = df_filtered.copy()
     # Convert Fiscal Year to string for display purposes in the title
     df_cal['Fiscal Year'] = df_cal['Fiscal Year'].apply(lambda x: int(x) if pd.notna(x) else '').astype(str)
 
@@ -61,7 +235,11 @@ if df_original is not None and icons_df is not None:
     for index, row in df_cal.iterrows():
         if pd.notna(row['START']) and pd.notna(row['END']):
             # Use the original numeric fiscal year for the color lookup
-            original_year = df_original.loc[index, 'Fiscal Year']
+            # If the original index exists in the unfiltered df, use it; otherwise use the row value
+            try:
+                original_year = df_original.loc[index, 'Fiscal Year']
+            except Exception:
+                original_year = row.get('Fiscal Year')
             task_color = year_color_map.get(original_year, "#808080")
             
             # Get the icon for the task's bucket
