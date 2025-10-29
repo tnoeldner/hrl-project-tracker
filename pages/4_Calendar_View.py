@@ -194,103 +194,93 @@ if df_filtered is not None and icons_df is not None:
     else:
         st.info("Tasks are color-coded by Fiscal Year and include an icon for the Planner Bucket. Click any task to edit.")
 
-    # --- DYNAMIC ICON MAPPING ---
-    # Convert the icons DataFrame to a dictionary for easy lookup
-    bucket_icon_map = pd.Series(icons_df.icon.values, index=icons_df.bucket_name).to_dict()
-    # Ensure a default icon exists for buckets not in the map
-    if 'Default' not in bucket_icon_map:
-        bucket_icon_map['Default'] = '📌'
-    
-    # --- COLOR MAPPING LOGIC ---
-    # Ensure Fiscal Year is treated as a number for color mapping
-    df_filtered['Fiscal Year'] = pd.to_numeric(df_filtered['Fiscal Year'], errors='coerce')
-    fiscal_years = sorted(df_filtered['Fiscal Year'].dropna().unique())
-    color_palette = ["#009A44", "#007BA7", "#E69F00", "#D55E00", "#CC79A7", "#56B4E9", "#F0E442"]
-    year_color_map = {year: color_palette[i % len(color_palette)] for i, year in enumerate(fiscal_years)}
+        # --- DYNAMIC ICON MAPPING ---
+        bucket_icon_map = pd.Series(icons_df.icon.values, index=icons_df.bucket_name).to_dict()
+        if 'Default' not in bucket_icon_map:
+            bucket_icon_map['Default'] = '📌'
+        
+        # --- COLOR MAPPING LOGIC ---
+        df_filtered['Fiscal Year'] = pd.to_numeric(df_filtered['Fiscal Year'], errors='coerce')
+        fiscal_years = sorted(df_filtered['Fiscal Year'].dropna().unique())
+        color_palette = ["#009A44", "#007BA7", "#E69F00", "#D55E00", "#CC79A7", "#56B4E9", "#F0E442"]
+        year_color_map = {year: color_palette[i % len(color_palette)] for i, year in enumerate(fiscal_years)}
 
-    # --- Display Legends ---
-    st.subheader("Legends")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("**Fiscal Year Color**")
-        if fiscal_years:
-            # Ensure there's a max number of columns to prevent layout errors
-            cols = st.columns(min(len(fiscal_years), 4)) 
-            for i, year in enumerate(fiscal_years):
-                with cols[i % len(cols)]:
-                    st.markdown(f"<span style='color:{year_color_map.get(year, '#808080')};'>●</span> FY{int(year)}", unsafe_allow_html=True)
-    with col2:
-        st.write("**Planner Bucket Icon**")
-        # Display the icon legend in a scrollable container
-        with st.container(height=100):
-             for bucket, icon in bucket_icon_map.items():
-                 st.markdown(f"{icon} {bucket}")
-    st.markdown("---")
+        # --- Display Legends ---
+        st.subheader("Legends")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Fiscal Year Color**")
+            if fiscal_years:
+                cols = st.columns(min(len(fiscal_years), 4)) 
+                for i, year in enumerate(fiscal_years):
+                    with cols[i % len(cols)]:
+                        st.markdown(f"<span style='color:{year_color_map.get(year, '#808080')};'>●</span> FY{int(year)}", unsafe_allow_html=True)
+        with col2:
+            st.write("**Planner Bucket Icon**")
+            with st.container(height=100):
+                 for bucket, icon in bucket_icon_map.items():
+                     st.markdown(f"{icon} {bucket}")
+        st.markdown("---")
 
-    df_cal = df_filtered.copy()
-    # Convert Fiscal Year to string for display purposes in the title
-    df_cal['Fiscal Year'] = df_cal['Fiscal Year'].apply(lambda x: int(x) if pd.notna(x) else '').astype(str)
+        df_cal = df_filtered.copy()
+        df_cal['Fiscal Year'] = df_cal['Fiscal Year'].apply(lambda x: int(x) if pd.notna(x) else '').astype(str)
 
-    tasks_for_calendar = []
-    for index, row in df_cal.iterrows():
-        if pd.notna(row['START']) and pd.notna(row['END']):
-            # Use the original numeric fiscal year for the color lookup
-            # If the original index exists in the unfiltered df, use it; otherwise use the row value
-            try:
-                original_year = df_original.loc[index, 'Fiscal Year']
-            except Exception:
-                original_year = row.get('Fiscal Year')
-            task_color = year_color_map.get(original_year, "#808080")
-            
-            # Get the icon for the task's bucket
-            bucket = row.get('PLANNER BUCKET', 'Default')
-            icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
-            
-            tasks_for_calendar.append({
-                "title": f"{icon} {row['TASK']} (FY{row['Fiscal Year']})", # Prepend icon to title
-                "start": row['START'].strftime("%Y-%m-%d"), 
-                "end": row['END'].strftime("%Y-%m-%d"), 
-                "id": index,
-                "color": task_color 
-            })
+        tasks_for_calendar = []
+        for index, row in df_cal.iterrows():
+            if pd.notna(row['START']) and pd.notna(row['END']):
+                try:
+                    original_year = df_original.loc[index, 'Fiscal Year']
+                except Exception:
+                    original_year = row.get('Fiscal Year')
+                task_color = year_color_map.get(original_year, "#808080")
+                bucket = row.get('PLANNER BUCKET', 'Default')
+                icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
+                tasks_for_calendar.append({
+                    "title": f"{icon} {row['TASK']} (FY{row['Fiscal Year']})",
+                    "start": row['START'].strftime("%Y-%m-%d"), 
+                    "end": row['END'].strftime("%Y-%m-%d"), 
+                    "id": index,
+                    "color": task_color 
+                })
 
-    clicked_event = calendar(events=tasks_for_calendar)
+        clicked_event = calendar(events=tasks_for_calendar)
 
-    # --- ICS EXPORT CONTROLS ---
-    st.markdown("---")
-    st.subheader("Export Calendar")
-    export_col1, export_col2 = st.columns([1, 1])
-    with export_col1:
-        if st.button("📥 Download .ics for all visible tasks"):
-            # Build a DataFrame of the visible tasks (those with START/END)
-            export_df = df_cal.copy()
-            # Keep only rows with valid dates
-            export_df = export_df[pd.notna(export_df['START']) & pd.notna(export_df['END'])]
-            ics_bytes = ics_export.generate_ics_from_df(export_df)
-            st.download_button(label="Download calendar.ics", data=ics_bytes, file_name="hrl_project_tracker_calendar.ics", mime="text/calendar")
-    with export_col2:
+        st.markdown("---")
+        st.subheader("Export Calendar")
+        export_col1, export_col2 = st.columns([1, 1])
+        with export_col1:
+            if st.button("📥 Download .ics for all visible tasks"):
+                export_df = df_cal.copy()
+                export_df = export_df[pd.notna(export_df['START']) & pd.notna(export_df['END'])]
+                ics_bytes = ics_export.generate_ics_from_df(export_df)
+                st.download_button(label="Download calendar.ics", data=ics_bytes, file_name="hrl_project_tracker_calendar.ics", mime="text/calendar")
+        with export_col2:
+            if 'selected_task_id' in st.session_state and st.session_state['selected_task_id'] is not None:
+                task_id = st.session_state['selected_task_id']
+                if task_id in df_original.index:
+                    if st.button("📥 Download .ics for selected task"):
+                        single_df = df_original.loc[[task_id]].copy()
+                        ics_bytes = ics_export.generate_ics_from_df(single_df)
+                        filename = f"task_{int(task_id)}.ics"
+                        st.download_button(label=f"Download .ics for task #{int(task_id)}", data=ics_bytes, file_name=filename, mime="text/calendar")
+
+        if clicked_event and clicked_event.get('callback') == 'eventClick':
+            task_id = clicked_event['eventClick']['event'].get('id')
+            if task_id is not None:
+                st.session_state['selected_task_id'] = int(task_id)
+
         if 'selected_task_id' in st.session_state and st.session_state['selected_task_id'] is not None:
             task_id = st.session_state['selected_task_id']
             if task_id in df_original.index:
-                if st.button("📥 Download .ics for selected task"):
-                    single_df = df_original.loc[[task_id]].copy()
-                    ics_bytes = ics_export.generate_ics_from_df(single_df)
-                    filename = f"task_{int(task_id)}.ics"
-                    st.download_button(label=f"Download .ics for task #{int(task_id)}", data=ics_bytes, file_name=filename, mime="text/calendar")
-
-    if clicked_event and clicked_event.get('callback') == 'eventClick':
-        task_id = clicked_event['eventClick']['event'].get('id')
-        if task_id is not None:
-            # Set the selected task ID without forcing a rerun
-            st.session_state['selected_task_id'] = int(task_id)
-
-    if 'selected_task_id' in st.session_state and st.session_state['selected_task_id'] is not None:
-        task_id = st.session_state['selected_task_id']
-        if task_id in df_original.index:
-            task_data = df_original.loc[task_id].copy()
-            st.subheader(f"✍️ Editing Task: {task_data['TASK']}")
-            with st.form("edit_task_form"):
-                
+                task_data = df_original.loc[task_id].copy()
+                st.subheader(f"✍️ Editing Task: {task_data['TASK']}")
+                with st.form("edit_task_form"):
+                    assignment_options = sorted([str(item) for item in df_original['ASSIGNMENT TITLE'].unique()])
+                    progress_options = ["NOT STARTED", "IN PROGRESS", "COMPLETE"]
+                    bucket_options_form = sorted([str(item) for item in icons_df['bucket_name'].unique()])
+                    semester_options = sorted([str(s) for s in df_original['SEMESTER'].unique() if s and pd.notna(s)])
+                    year_options_form = sorted([int(y) for y in df_original['Fiscal Year'].dropna().unique()])
+                    # ...existing code...
                 # --- COMPLETE EDITING FORM ---
                 assignment_options = sorted([str(item) for item in df_original['ASSIGNMENT TITLE'].unique()])
                 progress_options = ["NOT STARTED", "IN PROGRESS", "COMPLETE"]
