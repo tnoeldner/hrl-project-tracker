@@ -282,62 +282,60 @@ if df_filtered is not None and icons_df is not None:
                     year_options_form = sorted([int(y) for y in df_original['Fiscal Year'].dropna().unique()])
                     # ...existing code...
                 # --- COMPLETE EDITING FORM ---
-                assignment_options = sorted([str(item) for item in df_original['ASSIGNMENT TITLE'].unique()])
-                progress_options = ["NOT STARTED", "IN PROGRESS", "COMPLETE"]
-                bucket_options_form = sorted([str(item) for item in icons_df['bucket_name'].unique()]) # Use icons_df for bucket options
-                semester_options = sorted([str(s) for s in df_original['SEMESTER'].unique() if s and pd.notna(s)])
-                year_options_form = sorted([int(y) for y in df_original['Fiscal Year'].dropna().unique()])
-                
-                # Get current indices for dropdowns with error handling
-                try: title_index = assignment_options.index(task_data['ASSIGNMENT TITLE'])
-                except (ValueError, TypeError): title_index = 0
-                try: progress_index = progress_options.index(task_data.get('PROGRESS', 'NOT STARTED'))
-                except (ValueError, TypeError): progress_index = 0
-                try: bucket_index = bucket_options_form.index(task_data['PLANNER BUCKET'])
-                except (ValueError, TypeError): bucket_index = 0
-                try: 
-                    current_semester = str(task_data.get('SEMESTER', ''))
-                    semester_index = semester_options.index(current_semester) if current_semester in semester_options else 0
-                except (ValueError, TypeError): semester_index = 0
-                try:
-                    year_index = year_options_form.index(task_data['Fiscal Year'])
-                except (ValueError, TypeError):
-                    year_index = 0
+                with st.form("edit_task_form_2"):
+                    assignment_options = sorted([str(item) for item in df_original['ASSIGNMENT TITLE'].unique()])
+                    progress_options = ["NOT STARTED", "IN PROGRESS", "COMPLETE"]
+                    bucket_options_form = sorted([str(item) for item in icons_df['bucket_name'].unique()]) # Use icons_df for bucket options
+                    semester_options = sorted([str(s) for s in df_original['SEMESTER'].unique() if s and pd.notna(s)])
+                    year_options_form = sorted([int(y) for y in df_original['Fiscal Year'].dropna().unique()])
 
-                c1, c2 = st.columns(2)
-                with c1:
-                    new_assignment_title = st.selectbox("Assignment Title", options=assignment_options, index=title_index)
-                    new_progress = st.selectbox("Progress", options=progress_options, index=progress_index)
-                    new_bucket = st.selectbox("Planner Bucket", options=bucket_options_form, index=bucket_index)
-                    new_fiscal_year = st.selectbox("Fiscal Year", options=year_options_form, index=year_index)
-                with c2:
-                    new_start_date = st.date_input("Start Date", value=pd.to_datetime(task_data['START']))
-                    new_end_date = st.date_input("End Date", value=pd.to_datetime(task_data['END']))
-                    new_semester = st.selectbox("Semester", options=semester_options, index=semester_index)
+                    # Get current indices for dropdowns with error handling
+                    try: title_index = assignment_options.index(task_data['ASSIGNMENT TITLE'])
+                    except (ValueError, TypeError): title_index = 0
+                    try: progress_index = progress_options.index(task_data.get('PROGRESS', 'NOT STARTED'))
+                    except (ValueError, TypeError): progress_index = 0
+                    try: bucket_index = bucket_options_form.index(task_data['PLANNER BUCKET'])
+                    except (ValueError, TypeError): bucket_index = 0
+                    try: 
+                        current_semester = str(task_data.get('SEMESTER', ''))
+                        semester_index = semester_options.index(current_semester) if current_semester in semester_options else 0
+                    except (ValueError, TypeError): semester_index = 0
+                    try:
+                        year_index = year_options_form.index(task_data['Fiscal Year'])
+                    except (ValueError, TypeError):
+                        year_index = 0
 
-                new_task_desc = st.text_area("Task Description", value=task_data['TASK'])
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        new_assignment_title = st.selectbox("Assignment Title", options=assignment_options, index=title_index)
+                        new_progress = st.selectbox("Progress", options=progress_options, index=progress_index)
+                        new_bucket = st.selectbox("Planner Bucket", options=bucket_options_form, index=bucket_index)
+                        new_fiscal_year = st.selectbox("Fiscal Year", options=year_options_form, index=year_index)
+                    with c2:
+                        new_start_date = st.date_input("Start Date", value=pd.to_datetime(task_data['START']))
+                        new_end_date = st.date_input("End Date", value=pd.to_datetime(task_data['END']))
+                        new_semester = st.selectbox("Semester", options=semester_options, index=semester_index)
 
-                col_save, col_cancel = st.columns(2)
-                with col_save:
-                    submitted = st.form_submit_button("Save Changes")
-                with col_cancel:
-                    cancelled = st.form_submit_button("Cancel")
+                    new_task_desc = st.text_area("Task Description", value=task_data['TASK'])
 
-                if submitted:
-                    df_updated = df_original.copy()
-                    
-                    # --- CRITICAL SAFEGUARD ---
-                    if df_updated is None or df_updated.empty:
-                        st.error("CRITICAL ERROR: Original data is missing. Save operation aborted to prevent data loss.")
-                    else:
-                        df_updated.loc[task_id, 'ASSIGNMENT TITLE'] = new_assignment_title
-                        df_updated.loc[task_id, 'PROGRESS'] = new_progress
-                        df_updated.loc[task_id, 'START'] = pd.to_datetime(new_start_date)
-                        df_updated.loc[task_id, 'END'] = pd.to_datetime(new_end_date)
-                        df_updated.loc[task_id, 'PLANNER BUCKET'] = new_bucket
-                        df_updated.loc[task_id, 'SEMESTER'] = new_semester
-                        df_updated.loc[task_id, 'TASK'] = new_task_desc
-                        df_updated.loc[task_id, 'Fiscal Year'] = new_fiscal_year
+                    col_save, col_cancel = st.columns(2)
+                    submitted = col_save.form_submit_button("Save Changes")
+                    cancelled = col_cancel.form_submit_button("Cancel")
+
+                    if submitted:
+                        df_updated = df_original.copy()
+                        # --- CRITICAL SAFEGUARD ---
+                        if df_updated is None or df_updated.empty:
+                            st.error("CRITICAL ERROR: Original data is missing. Save operation aborted to prevent data loss.")
+                        else:
+                            df_updated.loc[task_id, 'ASSIGNMENT TITLE'] = new_assignment_title
+                            df_updated.loc[task_id, 'PROGRESS'] = new_progress
+                            df_updated.loc[task_id, 'START'] = pd.to_datetime(new_start_date)
+                            df_updated.loc[task_id, 'END'] = pd.to_datetime(new_end_date)
+                            df_updated.loc[task_id, 'PLANNER BUCKET'] = new_bucket
+                            df_updated.loc[task_id, 'SEMESTER'] = new_semester
+                            df_updated.loc[task_id, 'TASK'] = new_task_desc
+                            df_updated.loc[task_id, 'Fiscal Year'] = new_fiscal_year
                         
                         user_email = st.session_state.logged_in_user
                         if data_manager.save_and_log_changes(df_original, df_updated, user_email, "Calendar Edit"):
