@@ -227,6 +227,19 @@ def save_and_log_changes(original_df, updated_df, user_email="system", source_pa
         timestamp = datetime.now()
         log_entries = []
 
+        def _ensure_df(selection):
+            """Normalize selection to a DataFrame to avoid Series leaking into log payloads."""
+            if isinstance(selection, pd.Series):
+                return selection.to_frame().T
+            return selection if isinstance(selection, pd.DataFrame) else pd.DataFrame()
+
+        def _format_log_value(val):
+            if isinstance(val, pd.Timestamp):
+                return val.strftime('%Y-%m-%d') if not pd.isna(val) else ''
+            if pd.isna(val):
+                return ''
+            return str(val)
+
         # Use '#' as the index for comparison
         original_indexed = original_df.set_index('#')
         updated_indexed = updated_df.set_index('#')
@@ -234,37 +247,68 @@ def save_and_log_changes(original_df, updated_df, user_email="system", source_pa
         # 1. Find DELETED tasks
         deleted_ids = original_indexed.index.difference(updated_indexed.index)
         for task_id in deleted_ids:
-            log_entries.append({
-                'Timestamp': timestamp, 'Action': 'DELETE', 'Task ID': task_id,
-                'User': user_email, 'Source': source_page, 'Field Changed': 'ENTIRE TASK', 
-                'Old Value': original_indexed.loc[task_id]['TASK'], 'New Value': ''
-            })
+            orig_rows = _ensure_df(original_indexed.loc[task_id])
+            for _, orig_row in orig_rows.iterrows():
+                fy = orig_row.get('Fiscal Year', '')
+                fy_display = _format_log_value(fy)
+                task_name = orig_row.get('TASK', '')
+                log_entries.append({
+                    'Timestamp': timestamp,
+                    'Action': 'DELETE',
+                    'Task ID': task_id,
+                    'User': user_email,
+                    'Source': f"{source_page} (FY: {fy_display})" if fy_display else source_page,
+                    'Field Changed': 'ENTIRE TASK',
+                    'Old Value': _format_log_value(task_name),
+                    'New Value': ''
+                })
 
         # 2. Find ADDED tasks
         added_ids = updated_indexed.index.difference(original_indexed.index)
         for task_id in added_ids:
-            log_entries.append({
-                'Timestamp': timestamp, 'Action': 'ADD', 'Task ID': task_id,
-                'User': user_email, 'Source': source_page, 'Field Changed': 'ENTIRE TASK', 
-                'Old Value': '', 'New Value': updated_indexed.loc[task_id]['TASK']
-            })
+            new_rows = _ensure_df(updated_indexed.loc[task_id])
+            for _, new_row in new_rows.iterrows():
+                fy = new_row.get('Fiscal Year', '')
+                fy_display = _format_log_value(fy)
+                task_name = new_row.get('TASK', '')
+                log_entries.append({
+                    'Timestamp': timestamp,
+                    'Action': 'ADD',
+                    'Task ID': task_id,
+                    'User': user_email,
+                    'Source': f"{source_page} (FY: {fy_display})" if fy_display else source_page,
+                    'Field Changed': 'ENTIRE TASK',
+                    'Old Value': '',
+                    'New Value': _format_log_value(task_name)
+                })
 
-        # 3. Find EDITED tasks
+        # 3. Find EDITED tasks (handle multiple fiscal years per task_id)
         common_ids = original_indexed.index.intersection(updated_indexed.index)
         for task_id in common_ids:
-            # align the columns before comparing to handle any reordering
-            orig_series, updated_series = original_indexed.loc[task_id].align(updated_indexed.loc[task_id])
-            # Fill NaN values to avoid errors on comparison
-            diff = orig_series.fillna('').compare(updated_series.fillna(''), result_names=('old', 'new'))
-            
-            for field, values in diff.iterrows():
-                # Don't log changes if both old and new values are empty
-                if pd.notna(values['old']) or pd.notna(values['new']):
-                    log_entries.append({
-                        'Timestamp': timestamp, 'Action': 'EDIT', 'Task ID': task_id,
-                        'User': user_email, 'Source': source_page, 'Field Changed': field, 
-                        'Old Value': str(values['old']), 'New Value': str(values['new'])
-                    })
+            orig_task_rows = original_indexed.loc[original_indexed.index == task_id]
+            updated_task_rows = updated_indexed.loc[updated_indexed.index == task_id]
+
+            for _, orig_row in orig_task_rows.iterrows():
+                orig_fy = orig_row.get('Fiscal Year')
+                orig_task_name = orig_row.get('TASK')
+
+                updated_row_match = updated_task_rows[
+                    (updated_task_rows['Fiscal Year'] == orig_fy) &
+                    (updated_task_rows['TASK'] == orig_task_name)
+                ]
+
+                if not updated_row_match.empty:
+                    updated_row = updated_row_match.iloc[0]
+                    for col in original_df.columns:
+                        if col not in ['#', 'id']:
+                            old_val = orig_row.get(col)
+                            new_val = updated_row.get(col)
+                            if str(old_val) != str(new_val):
+                                log_entries.append({
+                                    'Timestamp': timestamp, 'Action': 'EDIT', 'Task ID': task_id,
+                                    'User': user_email, 'Source': f"{source_page} (FY: {orig_fy})", 'Field Changed': col, 
+                                    'Old Value': _format_log_value(old_val), 'New Value': _format_log_value(new_val)
+                                })
         
         # Save the log if there are new entries
         if log_entries:
