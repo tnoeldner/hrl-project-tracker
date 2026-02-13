@@ -111,7 +111,7 @@ if df_original is not None:
             **{col: st.column_config.TextColumn() for col in [f"{year} END" for year in years_to_show]},
         },
         num_rows="dynamic",
-        use_container_width=True,
+        width='stretch',
         key="three_year_table_editor"
     )
     st.caption("Enter dates in YYYY-MM-DD format for START and END columns.")

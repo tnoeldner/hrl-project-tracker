@@ -66,7 +66,7 @@ if changelog_df is not None:
     st.write(f"Displaying {len(filtered_log)} of {len(changelog_df)} total log entries.")
     
     # Display the filtered log, sorted by most recent first
-    st.dataframe(filtered_log.sort_values(by='Timestamp', ascending=False), use_container_width=True)
+    st.dataframe(filtered_log.sort_values(by='Timestamp', ascending=False), width='stretch')
 
 else:
     st.warning("Could not load changelog data from the database. The table may be empty.")

@@ -171,13 +171,13 @@ if df_original is not None:
                     if matched_ids:
                         preview_matches = updated_df_from_upload[updated_df_from_upload['#'].astype(str).isin(list(matched_ids))].head(10)
                         st.subheader("Preview: Matching rows (will be used to update existing tasks)")
-                        st.dataframe(preview_matches, use_container_width=True)
+                        st.dataframe(preview_matches, width='stretch')
 
                     if append_new:
                         st.info("New rows will be appended. IDs from the uploaded file will be ignored for appended rows and new IDs will be assigned to avoid collisions.")
                         preview_new = updated_df_from_upload[updated_df_from_upload['#'].astype(str).isin(list(new_ids))].head(10)
                         st.subheader("Preview: New rows to append")
-                        st.dataframe(preview_new, use_container_width=True)
+                        st.dataframe(preview_new, width='stretch')
 
                     # Compute proposed updated DataFrame for preview (dry-run)
                     def build_proposed_df():
@@ -264,7 +264,7 @@ if df_original is not None:
                             st.info("No changes detected between current data and uploaded file (with selected options).")
                         else:
                             st.write(f"Total changed fields: {len(diffs_df)}; Updated rows: {len(diffs_df[diffs_df['action']=='UPDATE']['#'].unique())}; Appended rows: {len(diffs_df[diffs_df['action']=='APPEND']['#'].unique())}")
-                            st.dataframe(diffs_df.sort_values(by=['action','#']).head(1000), use_container_width=True)
+                            st.dataframe(diffs_df.sort_values(by=['action','#']).head(1000), width='stretch')
 
                         # Save proposed CSV to session_state for Confirm & Apply
                         try:

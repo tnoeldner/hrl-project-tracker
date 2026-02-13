@@ -83,7 +83,7 @@ if all(df is not None for df in [icons_df_original, tasks_df_original, users_df_
             if search_name:
                 filtered = filtered[filtered['preset_name'].str.contains(search_name, case=False, na=False)]
 
-            st.dataframe(filtered.sort_values(by='created_at', ascending=False), use_container_width=True)
+            st.dataframe(filtered.sort_values(by='created_at', ascending=False), width='stretch')
 
             # Allow deletion of a selected preset
             st.markdown("**Delete a preset**")
@@ -357,7 +357,7 @@ if all(df is not None for df in [icons_df_original, tasks_df_original, users_df_
             ]
 
             st.markdown("---")
-            st.dataframe(filtered_log.sort_values(by='Timestamp', ascending=False), use_container_width=True)
+            st.dataframe(filtered_log.sort_values(by='Timestamp', ascending=False), width='stretch')
         else:
             st.info("The changelog is currently empty.")
 

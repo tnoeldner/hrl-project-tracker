@@ -167,7 +167,7 @@ if df is not None:
         if selected_task_id is not None:
             left_col, right_col = st.columns([3,2])
             with left_col:
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             with right_col:
                 st.markdown("### Task detail (selected)")
                 # Find the task row
@@ -224,7 +224,7 @@ if df is not None:
                         st.session_state['selected_task_id'] = None
                         st.rerun()
         else:
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             # --- Export visible tasks and quick edit selector ---
             st.write("---")
             st.subheader("Visible tasks & quick edit")

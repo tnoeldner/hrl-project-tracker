@@ -50,7 +50,7 @@ else:
     # Presets per user
     st.subheader("Presets per user")
     presets_by_user = presets_df.groupby('user_email').size().sort_values(ascending=False).rename('preset_count').reset_index()
-    st.dataframe(presets_by_user, use_container_width=True)
+    st.dataframe(presets_by_user, width='stretch')
     st.bar_chart(presets_by_user.set_index('user_email')['preset_count'])
 
     st.markdown("---")
@@ -64,7 +64,7 @@ else:
         recent = recent.sort_values(by='preset_id', ascending=False)
 
     show_count = st.number_input("Show how many recent presets?", min_value=1, max_value=100, value=10, step=1)
-    st.dataframe(recent.head(show_count).assign(years_display=lambda df: df['years'].fillna('[]')).loc[:, ['preset_id','user_email','preset_name','years_display','buckets','created_at']].rename(columns={'years_display':'years'}), use_container_width=True)
+    st.dataframe(recent.head(show_count).assign(years_display=lambda df: df['years'].fillna('[]')).loc[:, ['preset_id','user_email','preset_name','years_display','buckets','created_at']].rename(columns={'years_display':'years'}), width='stretch')
 
     st.markdown("---")
 
@@ -80,7 +80,7 @@ else:
         filtered = filtered[filtered['preset_name'].str.contains(search_name, case=False, na=False)]
 
     st.write(f"{len(filtered)} presets match the filters")
-    st.dataframe(filtered.sort_values(by='created_at_dt', ascending=False).loc[:, ['preset_id','user_email','preset_name','years','buckets','created_at']], use_container_width=True)
+    st.dataframe(filtered.sort_values(by='created_at_dt', ascending=False).loc[:, ['preset_id','user_email','preset_name','years','buckets','created_at']], width='stretch')
 
     st.markdown("---")
     st.subheader("Preset detail")
