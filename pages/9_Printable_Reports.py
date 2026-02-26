@@ -6,6 +6,16 @@ from datetime import datetime
 import data_manager
 import calendar as py_calendar
 
+# --- Helpers ---
+def format_date(value, fmt='%Y-%m-%d'):
+    """Safely format dates, returning a placeholder when missing."""
+    if pd.isna(value):
+        return "N/A"
+    try:
+        return pd.to_datetime(value).strftime(fmt)
+    except Exception:
+        return str(value)
+
 # --- AUTHENTICATION CHECK ---
 if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
     st.warning("Please log in to access this page.")
@@ -37,7 +47,7 @@ def create_summary_report(df):
             table_data.append([
                 str(row['TASK']),
                 str(row['PLANNER BUCKET']),
-                row['END'].strftime('%Y-%m-%d'),
+                format_date(row['END'], '%Y-%m-%d'),
                 str(row['PROGRESS'])
             ])
         
@@ -68,7 +78,7 @@ def create_full_list_report(df):
         table_data.append([
             str(row['#']), str(row['TASK']), str(row['PLANNER BUCKET']),
             str(row['SEMESTER']), str(row['Fiscal Year']), str(row['AUDIENCE']),
-            row['START'].strftime('%Y-%m-%d'), row['END'].strftime('%Y-%m-%d'), str(row['PROGRESS'])
+            format_date(row['START'], '%Y-%m-%d'), format_date(row['END'], '%Y-%m-%d'), str(row['PROGRESS'])
         ])
 
     pdf.set_font("Helvetica", "", 7)
@@ -95,7 +105,7 @@ def create_bucket_report(df, selected_bucket, selected_year):
     for _, row in bucket_df.iterrows():
         table_data.append([
             str(row['TASK']), str(row['SEMESTER']), str(row['Fiscal Year']),
-            row['START'].strftime('%m-%d-%Y, %A'), row['END'].strftime('%m-%d-%Y, %A'), str(row['PROGRESS'])
+            format_date(row['START'], '%m-%d-%Y, %A'), format_date(row['END'], '%m-%d-%Y, %A'), str(row['PROGRESS'])
         ])
 
     pdf.set_font("Helvetica", "", 9)
@@ -183,7 +193,7 @@ def create_comparison_report(df, year1, year2):
                 details = df_source[df_source['TASK'] == task_name].iloc[0]
                 table_data.append([
                     str(details['TASK']), str(details['PLANNER BUCKET']),
-                    details['START'].strftime('%m-%d-%Y, %A'), details['END'].strftime('%m-%d-%Y, %A')
+                    format_date(details['START'], '%m-%d-%Y, %A'), format_date(details['END'], '%m-%d-%Y, %A')
                 ])
             pdf.set_font("Helvetica", "", 8)
             with pdf.table(col_widths=(120, 50, 45, 45), text_align="LEFT", borders_layout="ALL", line_height=5) as table:
@@ -218,14 +228,81 @@ def create_comparison_report(df, year1, year2):
                 pdf.set_font("Helvetica", "B", 9)
                 pdf.multi_cell(0, 8, f"- {task_name}", ln=True)
                 pdf.set_font("Helvetica", "", 8)
-                pdf.cell(0, 6, f"  FY{year1}: {task1['START'].strftime('%m-%d-%Y')} to {task1['END'].strftime('%m-%d-%Y')}", ln=True)
-                pdf.cell(0, 6, f"  FY{year2}: {task2['START'].strftime('%m-%d-%Y')} to {task2['END'].strftime('%m-%d-%Y')}", ln=True)
+                pdf.cell(0, 6, f"  FY{year1}: {format_date(task1['START'], '%m-%d-%Y')} to {format_date(task1['END'], '%m-%d-%Y')}", ln=True)
+                pdf.cell(0, 6, f"  FY{year2}: {format_date(task2['START'], '%m-%d-%Y')} to {format_date(task2['END'], '%m-%d-%Y')}", ln=True)
                 pdf.ln(4)
     else:
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(0, 8, "None", ln=True)
 
     return bytes(pdf.output())
+
+def create_bucket_multi_year_report(df, years):
+    """Creates a bucket-grouped PDF showing start/end dates across three years."""
+    years = sorted(years)
+    pdf = FPDF(orientation="L")
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, f"Bucket Task Timeline (FY {years[0]}, {years[1]}, {years[2]})", ln=True, align='C')
+    pdf.ln(8)
+
+    buckets = sorted(df['PLANNER BUCKET'].dropna().unique())
+    any_data = False
+
+    for bucket in buckets:
+        bucket_df = df[(df['PLANNER BUCKET'] == bucket) & (df['Fiscal Year'].isin(years))]
+        if bucket_df.empty:
+            continue
+
+        any_data = True
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 10, f"Bucket: {bucket}", ln=True)
+
+        headers = ["Task"]
+        for y in years:
+            headers.extend([f"FY{y} Start", f"FY{y} End"])
+
+        table_data = [headers]
+        tasks = sorted(bucket_df['TASK'].dropna().unique())
+        for task_name in tasks:
+            row = [str(task_name)]
+            for y in years:
+                match = bucket_df[(bucket_df['TASK'] == task_name) & (bucket_df['Fiscal Year'] == y)]
+                if not match.empty:
+                    start_val = format_date(match.iloc[0]['START'], '%m-%d-%Y')
+                    end_val = format_date(match.iloc[0]['END'], '%m-%d-%Y')
+                else:
+                    start_val = "—"
+                    end_val = "—"
+                row.extend([start_val, end_val])
+            table_data.append(row)
+
+        pdf.set_font("Helvetica", "", 8)
+        # Width: task column wider, date columns compact
+        col_widths = [70] + [25] * 6
+        with pdf.table(col_widths=tuple(col_widths), text_align="LEFT", borders_layout="ALL", line_height=5) as table:
+            for data_row in table_data:
+                row = table.row()
+                for datum in data_row:
+                    row.cell(datum)
+
+        pdf.ln(6)
+
+    if not any_data:
+        pdf.set_font("Helvetica", "", 12)
+        pdf.cell(0, 10, "No tasks found for the selected years.", ln=True, align='C')
+
+    return bytes(pdf.output())
+
+def find_task_bucket_duplicates(df):
+    """Return rows that share the same Task + Planner Bucket + Fiscal Year."""
+    required = {'TASK', 'PLANNER BUCKET', 'Fiscal Year'}
+    if not required.issubset(df.columns):
+        return pd.DataFrame()
+    subset_cols = ['TASK', 'PLANNER BUCKET', 'Fiscal Year']
+    dupes = df[df.duplicated(subset=subset_cols, keep=False)].copy()
+    sort_cols = [col for col in ['PLANNER BUCKET', 'TASK', 'Fiscal Year', '#'] if col in dupes.columns]
+    return dupes.sort_values(sort_cols) if not dupes.empty else dupes
 
 # --- Page UI ---
 st.set_page_config(page_title="Printable Reports", layout="wide")
@@ -303,6 +380,58 @@ if df is not None:
         )
     elif year1 == year2:
         st.warning("Please select two different fiscal years to compare.")
+    
+    st.markdown("---")
+    st.subheader("Bucket Task Timeline (3 Years)")
+    year_options_timeline = sorted(df['Fiscal Year'].unique().tolist())
+    default_years = year_options_timeline[-3:] if len(year_options_timeline) >= 3 else year_options_timeline
+    selected_years = st.multiselect("Pick exactly three fiscal years", options=year_options_timeline, default=default_years)
+    if len(selected_years) == 3:
+        timeline_pdf = create_bucket_multi_year_report(df, selected_years)
+        st.download_button(
+            label=f"📥 Download Bucket Timeline for FY {selected_years[0]}, {selected_years[1]}, {selected_years[2]}",
+            data=timeline_pdf,
+            file_name=f"Bucket_Timeline_FY_{selected_years[0]}_{selected_years[1]}_{selected_years[2]}.pdf",
+            mime="application/pdf",
+            key="bucket_timeline_pdf"
+        )
+    else:
+        st.info("Select three years to enable the download.")
+
+    st.markdown("---")
+    st.subheader("Duplicate Task Checker (Task + Bucket + Fiscal Year)")
+    dup_df = find_task_bucket_duplicates(df)
+    if dup_df.empty:
+        st.info("No duplicate Task + Bucket combinations found.")
+    else:
+        st.caption(f"Found {len(dup_df)} duplicate rows across {dup_df[['TASK','PLANNER BUCKET','Fiscal Year']].drop_duplicates().shape[0]} task/bucket/year combos. The first column below is the row index; select that to delete.")
+        dup_display = dup_df.reset_index().rename(columns={'index': 'ROW'})
+        st.dataframe(dup_display[['ROW', '#', 'TASK', 'PLANNER BUCKET', 'Fiscal Year', 'START', 'END', 'PROGRESS']], use_container_width=True)
+        selected_rows = st.multiselect("Select row indexes to delete", options=dup_display['ROW'].tolist())
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("Delete selected duplicates", type="primary", disabled=len(selected_rows) == 0):
+                updated_df = df.drop(index=selected_rows).copy()
+                user_email = getattr(st.session_state, 'logged_in_user', 'system')
+                if data_manager.save_and_log_changes(df, updated_df, user_email=user_email, source_page="Duplicate Task Cleaner"):
+                    st.success(f"Deleted {len(selected_rows)} duplicate task(s).")
+                    st.rerun()
+                else:
+                    st.error("Failed to delete duplicates. Please try again.")
+        with col_b:
+            if st.button("Auto-remove all duplicates", type="secondary"):
+                # keep the first occurrence of each Task/Bucket/FY combo
+                cleaned_df = df.drop_duplicates(subset=['TASK','PLANNER BUCKET','Fiscal Year'], keep='first').copy()
+                removed_count = len(df) - len(cleaned_df)
+                if removed_count > 0:
+                    user_email = getattr(st.session_state, 'logged_in_user', 'system')
+                    if data_manager.save_and_log_changes(df, cleaned_df, user_email=user_email, source_page="Duplicate Task Cleaner (auto)"):
+                        st.success(f"Automatically removed {removed_count} duplicate row(s).")
+                        st.rerun()
+                    else:
+                        st.error("Failed to remove duplicates automatically. Please try again.")
+                else:
+                    st.info("No duplicates to remove.")
 else:
     st.warning("Could not load data.")
 
