@@ -46,13 +46,8 @@ if df is not None and icons_df is not None:
                 bucket = row.get('PLANNER BUCKET', 'Default')
                 icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
                 
-                status = row.get('PROGRESS', 'NOT STARTED')
-                status_colors = {"NOT STARTED": "red", "IN PROGRESS": "orange", "COMPLETE": "green"}
-                color = status_colors.get(status, "grey")
-                status_display = f":{color}[{status}]"
-                
-                # UPDATED: Changed the color of the date using markdown
-                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - {status_display}"):
+                # UPDATED: Added bucket name, removed completion status
+                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - {bucket}"):
                     st.markdown(f"**Assigned To:** {row['ASSIGNMENT TITLE']}")
                     st.markdown(f"**Planner Bucket:** {row['PLANNER BUCKET']}")
                     st.markdown(f"**Audience:** {row['AUDIENCE']}")
@@ -68,13 +63,8 @@ if df is not None and icons_df is not None:
                 bucket = row.get('PLANNER BUCKET', 'Default')
                 icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
 
-                status = row.get('PROGRESS', 'NOT STARTED')
-                status_colors = {"NOT STARTED": "red", "IN PROGRESS": "orange", "COMPLETE": "green"}
-                color = status_colors.get(status, "grey")
-                status_display = f":{color}[{status}]"
-
-                # UPDATED: Changed the color of the date using markdown
-                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - {status_display}"):
+                # UPDATED: Added bucket name, removed completion status
+                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - {bucket}"):
                     st.markdown(f"**Assigned To:** {row['ASSIGNMENT TITLE']}")
                     st.markdown(f"**Planner Bucket:** {row['PLANNER BUCKET']}")
                     st.markdown(f"**Audience:** {row['AUDIENCE']}")
