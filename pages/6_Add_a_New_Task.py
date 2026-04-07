@@ -19,7 +19,7 @@ if df_original is not None:
         st.write("Fill out the details below to add a new task.")
         
         # --- Form Fields ---
-        assignment_title = st.text_input("Assignment Title")
+        assignment_title = st.selectbox("Assignment Title", options=sorted(df_original['ASSIGNMENT TITLE'].dropna().unique().tolist()))
         task_desc = st.text_area("Task Description")
         planner_bucket = st.selectbox("Planner Bucket", options=sorted(df_original['PLANNER BUCKET'].dropna().unique().tolist()))
         semester = st.selectbox("Semester", options=sorted(df_original['SEMESTER'].dropna().unique().tolist()))
