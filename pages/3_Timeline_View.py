@@ -47,9 +47,9 @@ if df is not None and icons_df is not None:
                 icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
                 
                 # UPDATED: Added bucket name, removed completion status
-                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - {bucket}"):
+                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - :green[**{bucket}**]"):
                     st.markdown(f"**Assigned To:** {row['ASSIGNMENT TITLE']}")
-                    st.markdown(f"**Planner Bucket:** {row['PLANNER BUCKET']}")
+                    st.markdown(f"**Progress:** {row.get('PROGRESS', 'NOT STARTED')}")
                     st.markdown(f"**Audience:** {row['AUDIENCE']}")
         else:
             st.info("No tasks starting in this period.")
@@ -64,9 +64,9 @@ if df is not None and icons_df is not None:
                 icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
 
                 # UPDATED: Added bucket name, removed completion status
-                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - {bucket}"):
+                with st.expander(f"{icon} :blue[**{row['START'].strftime('%m-%d-%Y, %A')}**] - {row['TASK']} - :green[**{bucket}**]"):
                     st.markdown(f"**Assigned To:** {row['ASSIGNMENT TITLE']}")
-                    st.markdown(f"**Planner Bucket:** {row['PLANNER BUCKET']}")
+                    st.markdown(f"**Progress:** {row.get('PROGRESS', 'NOT STARTED')}")
                     st.markdown(f"**Audience:** {row['AUDIENCE']}")
         else:
             st.info("No tasks started in this period.")
