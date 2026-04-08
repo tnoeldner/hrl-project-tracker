@@ -1,4 +1,4 @@
-# File: pages/11_Notifications.py
+# File: pages/02_Notifications.py
 import streamlit as st
 import pandas as pd
 import data_manager
@@ -62,7 +62,7 @@ if notifications_df is not None and tasks_df is not None:
                         # Set the task ID in the session state
                         st.session_state.jump_to_task = task_id
                         # Programmatically switch to the Find and Filter page
-                        st.switch_page("pages/7_Find_and_Filter.py")
+                        st.switch_page("pages/08_Find_and_Filter.py")
 
             else:
                 st.info(f"**{notification['message']}**")

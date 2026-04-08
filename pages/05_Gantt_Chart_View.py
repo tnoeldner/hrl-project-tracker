@@ -1,4 +1,4 @@
-# File: pages/7_Gantt_Chart_View.py
+# File: pages/05_Gantt_Chart_View.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime

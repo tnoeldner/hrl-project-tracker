@@ -96,8 +96,7 @@ else:
         unread_notifications = data_manager.get_unread_notifications(user_email)
         unread_count = len(unread_notifications) if unread_notifications is not None else 0
         
-        # This should be the correct, numbered filename for your notifications page
-        notifications_page_path = "pages/2_Notifications.py" 
+        notifications_page_path = "pages/02_Notifications.py" 
         
         if unread_count > 0:
             st.sidebar.page_link(notifications_page_path, label=f"🔔 Notifications ({unread_count})")
@@ -105,6 +104,17 @@ else:
             st.sidebar.page_link(notifications_page_path, label="🔕 Notifications")
     except AttributeError:
         st.sidebar.warning("Notification function not found in data manager.")
+
+    # --- Sidebar Section Headers ---
+    st.sidebar.markdown("---")
+    st.sidebar.caption("VIEWS")
+    st.sidebar.markdown("---")
+    st.sidebar.caption("TASK MANAGEMENT")
+    st.sidebar.markdown("---")
+    st.sidebar.caption("REPORTS & SETTINGS")
+    if user_data.get('role') == 'admin':
+        st.sidebar.markdown("---")
+        st.sidebar.caption("ADMIN")
 
     
     with st.sidebar.expander("👤 Account"):

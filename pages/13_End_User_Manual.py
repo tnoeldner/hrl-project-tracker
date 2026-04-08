@@ -1,4 +1,4 @@
-# File: End_User_Manual.py
+# File: pages/13_End_User_Manual.py
 import streamlit as st
 from fpdf import FPDF
 from datetime import datetime

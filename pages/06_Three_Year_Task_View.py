@@ -1,7 +1,13 @@
-# File: pages/22_Three_Year_Task_View.py
+# File: pages/06_Three_Year_Task_View.py
 import streamlit as st
 import pandas as pd
 import data_manager
+
+# --- AUTHENTICATION CHECK ---
+if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user is None:
+    st.warning("Please log in to access this page.")
+    st.stop()
+# --------------------------
 
 st.set_page_config(page_title="Three-Year Task View", layout="wide")
 st.title("📊 Three-Year Task Table View")

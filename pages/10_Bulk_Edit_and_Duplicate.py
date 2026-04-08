@@ -1,4 +1,4 @@
-# File: pages/6_Bulk_Edit_and_Duplicate.py
+# File: pages/10_Bulk_Edit_and_Duplicate.py
 import streamlit as st
 import pandas as pd
 from io import BytesIO
