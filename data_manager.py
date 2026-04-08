@@ -20,6 +20,21 @@ try:
 except Exception:
     _BOTO3_AVAILABLE = False
 
+def format_fy(year):
+    """Convert a numeric year (e.g. 2024) to fiscal year display format (e.g. 'FY25').
+
+    The convention is: calendar year + 1 = fiscal year label.
+    For example, 2024 → FY25, 2025 → FY26.
+    Non-numeric values (like 'All') pass through unchanged.
+    """
+    try:
+        y = int(year)
+        if y <= 1901:
+            return str(year)
+        return f"FY{str(y + 1)[-2:]}"
+    except (ValueError, TypeError):
+        return str(year)
+
 def _safe_secret(key, default=None):
     """Return secret value or default without raising if secrets.toml is missing."""
     try:
@@ -250,14 +265,14 @@ def save_and_log_changes(original_df, updated_df, user_email="system", source_pa
             orig_rows = _ensure_df(original_indexed.loc[task_id])
             for _, orig_row in orig_rows.iterrows():
                 fy = orig_row.get('Fiscal Year', '')
-                fy_display = _format_log_value(fy)
+                fy_display = format_fy(fy) if fy else ''
                 task_name = orig_row.get('TASK', '')
                 log_entries.append({
                     'Timestamp': timestamp,
                     'Action': 'DELETE',
                     'Task ID': task_id,
                     'User': user_email,
-                    'Source': f"{source_page} (FY: {fy_display})" if fy_display else source_page,
+                    'Source': f"{source_page} ({fy_display})" if fy_display else source_page,
                     'Field Changed': 'ENTIRE TASK',
                     'Old Value': _format_log_value(task_name),
                     'New Value': ''
@@ -269,14 +284,14 @@ def save_and_log_changes(original_df, updated_df, user_email="system", source_pa
             new_rows = _ensure_df(updated_indexed.loc[task_id])
             for _, new_row in new_rows.iterrows():
                 fy = new_row.get('Fiscal Year', '')
-                fy_display = _format_log_value(fy)
+                fy_display = format_fy(fy) if fy else ''
                 task_name = new_row.get('TASK', '')
                 log_entries.append({
                     'Timestamp': timestamp,
                     'Action': 'ADD',
                     'Task ID': task_id,
                     'User': user_email,
-                    'Source': f"{source_page} (FY: {fy_display})" if fy_display else source_page,
+                    'Source': f"{source_page} ({fy_display})" if fy_display else source_page,
                     'Field Changed': 'ENTIRE TASK',
                     'Old Value': '',
                     'New Value': _format_log_value(task_name)
@@ -306,7 +321,7 @@ def save_and_log_changes(original_df, updated_df, user_email="system", source_pa
                             if str(old_val) != str(new_val):
                                 log_entries.append({
                                     'Timestamp': timestamp, 'Action': 'EDIT', 'Task ID': task_id,
-                                    'User': user_email, 'Source': f"{source_page} (FY: {orig_fy})", 'Field Changed': col, 
+                                    'User': user_email, 'Source': f"{source_page} ({format_fy(orig_fy)})", 'Field Changed': col, 
                                     'Old Value': _format_log_value(old_val), 'New Value': _format_log_value(new_val)
                                 })
         
@@ -374,7 +389,7 @@ def send_comment_email(recipient_email, author_email, task_details, comment_text
             <ul>
                 <li><b>Task:</b> {task_details['TASK']}</li>
                 <li><b>Planner Bucket:</b> {task_details['PLANNER BUCKET']}</li>
-                <li><b>Fiscal Year:</b> {task_details['Fiscal Year']}</li>
+                <li><b>Fiscal Year:</b> {format_fy(task_details['Fiscal Year'])}</li>
                 <li><b>Start Date:</b> {start_date}</li>
                 <li><b>End Date:</b> {end_date}</li>
             </ul>

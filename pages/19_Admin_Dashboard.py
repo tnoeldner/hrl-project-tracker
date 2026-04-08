@@ -320,7 +320,7 @@ if all(df is not None for df in [icons_df_original, tasks_df_original, users_df_
         st.write("You can run a small local server that serves a dynamic .ics subscription endpoint compatible with Outlook.")
         st.markdown("- Start the server: `python calendar_server.py` (installs: Flask required).")
         st.markdown("- Default subscription URL: `http://localhost:5005/calendar.ics`")
-        st.info("To include only a specific planner bucket, append `?bucket=YourBucketName` to the URL. To filter by fiscal year, append `?year=2025`.")
+        st.info("To include only a specific planner bucket, append `?bucket=YourBucketName` to the URL. To filter by fiscal year, append `?year=FY26`.")
         
         if not changelog_df_original.empty:
             changelog_df_original['Timestamp'] = pd.to_datetime(changelog_df_original['Timestamp'])

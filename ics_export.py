@@ -2,6 +2,16 @@ import uuid
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 
+def _format_fy(year):
+    """Convert a numeric year to fiscal year format (e.g. 2024 → FY25)."""
+    try:
+        y = int(year)
+        if y <= 1901:
+            return str(year)
+        return f"FY{str(y + 1)[-2:]}"
+    except (ValueError, TypeError):
+        return str(year)
+
 
 def _to_utc_string(ts: pd.Timestamp) -> str:
     """Convert a pandas Timestamp to a UTC 'YYYYMMDDTHHMMSSZ' string.
@@ -105,7 +115,7 @@ def generate_ics_from_df(df: pd.DataFrame, calendar_name: str = 'HRL Project Tra
         if 'PLANNER BUCKET' in row:
             description_parts.append(f"Bucket: {row.get('PLANNER BUCKET')}")
         if 'Fiscal Year' in row:
-            description_parts.append(f"FY: {row.get('Fiscal Year')}")
+            description_parts.append(f"FY: {_format_fy(row.get('Fiscal Year'))}")
         description = '\n'.join([p for p in description_parts if p])
 
         lines.append(f'SUMMARY:{_escape_text(summary)}')

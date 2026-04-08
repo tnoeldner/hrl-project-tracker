@@ -24,6 +24,7 @@ if df_original is not None:
         st.selectbox(
             "Select Fiscal Year for Dashboard View", 
             options=year_options,
+            format_func=lambda x: data_manager.format_fy(x),
             key="dashboard_year_filter"
         )
     with col2:
@@ -47,7 +48,7 @@ if df_original is not None:
     
     # --- METRICS DISPLAY ---
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric(f"Total Tasks (FY {st.session_state.dashboard_year_filter})", len(display_df))
+    col1.metric(f"Total Tasks ({data_manager.format_fy(st.session_state.dashboard_year_filter)})", len(display_df))
     col2.metric("Overdue Tasks", len(overdue_df))
     col3.metric("Unscheduled Tasks", len(unscheduled_df))
     col4.metric(f"Upcoming Tasks (Next {st.session_state.days_forward} Days)", len(upcoming_tasks))
@@ -57,10 +58,10 @@ if df_original is not None:
     # --- CHARTS ---
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader(f"Tasks by Planner Bucket (FY {st.session_state.dashboard_year_filter})")
+        st.subheader(f"Tasks by Planner Bucket ({data_manager.format_fy(st.session_state.dashboard_year_filter)})")
         st.dataframe(display_df['PLANNER BUCKET'].value_counts())
     with col2:
-        st.subheader(f"Tasks by Progress (FY {st.session_state.dashboard_year_filter})")
+        st.subheader(f"Tasks by Progress ({data_manager.format_fy(st.session_state.dashboard_year_filter)})")
         progress_counts = display_df['PROGRESS'].value_counts()
         if not progress_counts.empty:
             fig, ax = plt.subplots()
@@ -83,7 +84,7 @@ if df_original is not None:
                 st.success("Changes saved successfully!")
                 st.rerun()
     else:
-        st.success(f"No overdue tasks found for FY {st.session_state.dashboard_year_filter}.")
+        st.success(f"No overdue tasks found for {data_manager.format_fy(st.session_state.dashboard_year_filter)}.")
 
     st.markdown("---")
 
@@ -97,7 +98,7 @@ if df_original is not None:
                 st.success("Changes saved successfully!")
                 st.rerun()
     else:
-        st.info(f"No unscheduled tasks found for FY {st.session_state.dashboard_year_filter}.")
+        st.info(f"No unscheduled tasks found for {data_manager.format_fy(st.session_state.dashboard_year_filter)}.")
         
     st.markdown("---")
 
@@ -111,7 +112,7 @@ if df_original is not None:
                 st.success("Changes saved successfully!")
                 st.rerun()
     else:
-        st.info(f"No upcoming tasks found for FY {st.session_state.dashboard_year_filter}.")
+        st.info(f"No upcoming tasks found for {data_manager.format_fy(st.session_state.dashboard_year_filter)}.")
 
 else:
     st.warning("Could not load data.")

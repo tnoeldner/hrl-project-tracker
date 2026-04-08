@@ -116,6 +116,7 @@ st.subheader("Related Task Metrics")
 if tasks_df is not None and not tasks_df.empty:
     tasks_df['Fiscal Year'] = pd.to_numeric(tasks_df.get('Fiscal Year', pd.Series()), errors='coerce')
     counts_by_year = tasks_df.groupby('Fiscal Year').size().sort_index()
+    counts_by_year.index = counts_by_year.index.map(data_manager.format_fy)
     counts_by_bucket = tasks_df.groupby('PLANNER BUCKET').size().sort_values(ascending=False).head(20)
 
     c1, c2 = st.columns(2)

@@ -33,7 +33,8 @@ if df is not None:
     year_options = ['All'] + sorted(df['Fiscal Year'].unique().tolist())
     selected_year = st.selectbox(
         "Select Fiscal Year",
-        options=year_options
+        options=year_options,
+        format_func=lambda x: data_manager.format_fy(x)
     )
 
     # Additional quick filters to focus the Gantt view

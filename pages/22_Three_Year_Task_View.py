@@ -32,6 +32,7 @@ if df_original is not None:
             "Select Center Year",
             options=available_years_str,
             index=available_years_str.index(default_year) if default_year in available_years_str else 0,
+            format_func=lambda x: data_manager.format_fy(x),
             key="three_year_center_year"
         )
         years_to_show = [selected_year - 1, selected_year, selected_year + 1]
@@ -104,11 +105,11 @@ if df_original is not None:
         column_config={
             "#": st.column_config.TextColumn(disabled=True),
             **{col: st.column_config.SelectboxColumn(options=all_buckets) for col in ["PLANNER BUCKET"]},
-            **{col: st.column_config.SelectboxColumn(options=all_assignments) for col in [f"{year} ASSIGNMENT TITLE" for year in years_to_show]},
-            **{col: st.column_config.SelectboxColumn(options=["NOT STARTED", "IN PROGRESS", "COMPLETE"]) for col in [f"{year} PROGRESS" for year in years_to_show]},
-            **{col: st.column_config.SelectboxColumn(options=all_semesters) for col in [f"{year} SEMESTER" for year in years_to_show]},
-            **{col: st.column_config.TextColumn() for col in [f"{year} START" for year in years_to_show]},
-            **{col: st.column_config.TextColumn() for col in [f"{year} END" for year in years_to_show]},
+            **{f"{year} ASSIGNMENT TITLE": st.column_config.SelectboxColumn(label=f"{data_manager.format_fy(year)} ASSIGNMENT TITLE", options=all_assignments) for year in years_to_show},
+            **{f"{year} PROGRESS": st.column_config.SelectboxColumn(label=f"{data_manager.format_fy(year)} PROGRESS", options=["NOT STARTED", "IN PROGRESS", "COMPLETE"]) for year in years_to_show},
+            **{f"{year} SEMESTER": st.column_config.SelectboxColumn(label=f"{data_manager.format_fy(year)} SEMESTER", options=all_semesters) for year in years_to_show},
+            **{f"{year} START": st.column_config.TextColumn(label=f"{data_manager.format_fy(year)} START") for year in years_to_show},
+            **{f"{year} END": st.column_config.TextColumn(label=f"{data_manager.format_fy(year)} END") for year in years_to_show},
         },
         num_rows="dynamic",
         width='stretch',

@@ -117,7 +117,7 @@ if df_original is not None:
     with st.expander("Filters (affect display & .ics download)", expanded=st.session_state.get('calendar_filters_open', False)):
         cols = st.columns(2)
         with cols[0]:
-            selected_years = st.multiselect("Fiscal Year", options=available_years_str, default=st.session_state[year_key], key=year_key)
+            selected_years = st.multiselect("Fiscal Year", options=available_years_str, default=st.session_state[year_key], key=year_key, format_func=lambda x: data_manager.format_fy(x))
         with cols[1]:
             selected_buckets = st.multiselect("Planner Bucket", options=available_buckets, default=st.session_state[bucket_key], key=bucket_key)
 
@@ -214,7 +214,7 @@ if df_filtered is not None and icons_df is not None:
                 cols = st.columns(min(len(fiscal_years), 4)) 
                 for i, year in enumerate(fiscal_years):
                     with cols[i % len(cols)]:
-                        st.markdown(f"<span style='color:{year_color_map.get(year, '#808080')};'>●</span> FY{int(year)}", unsafe_allow_html=True)
+                        st.markdown(f"<span style='color:{year_color_map.get(year, '#808080')};'>●</span> {data_manager.format_fy(year)}", unsafe_allow_html=True)
         with col2:
             st.write("**Planner Bucket Icon**")
             with st.container(height=100):
@@ -236,7 +236,7 @@ if df_filtered is not None and icons_df is not None:
                 bucket = row.get('PLANNER BUCKET', 'Default')
                 icon = bucket_icon_map.get(bucket, bucket_icon_map['Default'])
                 tasks_for_calendar.append({
-                    "title": f"{icon} {row['TASK']} (FY{row['Fiscal Year']})",
+                    "title": f"{icon} {row['TASK']} ({data_manager.format_fy(original_year)})",
                     "start": row['START'].strftime("%Y-%m-%d"), 
                     "end": row['END'].strftime("%Y-%m-%d"), 
                     "id": index,
@@ -310,7 +310,7 @@ if df_filtered is not None and icons_df is not None:
                         new_assignment_title = st.selectbox("Assignment Title", options=assignment_options, index=title_index)
                         new_progress = st.selectbox("Progress", options=progress_options, index=progress_index)
                         new_bucket = st.selectbox("Planner Bucket", options=bucket_options_form, index=bucket_index)
-                        new_fiscal_year = st.selectbox("Fiscal Year", options=year_options_form, index=year_index)
+                        new_fiscal_year = st.selectbox("Fiscal Year", options=year_options_form, index=year_index, format_func=lambda x: data_manager.format_fy(x))
                     with c2:
                         new_start_date = st.date_input("Start Date", value=pd.to_datetime(task_data['START']))
                         new_end_date = st.date_input("End Date", value=pd.to_datetime(task_data['END']))

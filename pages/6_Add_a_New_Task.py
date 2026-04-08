@@ -23,7 +23,7 @@ if df_original is not None:
         task_desc = st.text_area("Task Description")
         planner_bucket = st.selectbox("Planner Bucket", options=sorted(df_original['PLANNER BUCKET'].dropna().unique().tolist()))
         semester = st.selectbox("Semester", options=sorted(df_original['SEMESTER'].dropna().unique().tolist()))
-        fiscal_year = st.selectbox("Fiscal Year", options=sorted(df_original['Fiscal Year'].dropna().unique().tolist()))
+        fiscal_year = st.selectbox("Fiscal Year", options=sorted(df_original['Fiscal Year'].dropna().unique().tolist()), format_func=lambda x: data_manager.format_fy(x))
         audience = st.selectbox("Audience", options=sorted(df_original['AUDIENCE'].dropna().unique().tolist()))
         start_date = st.date_input("Start Date", format="MM-DD-YYYY")
         end_date = st.date_input("End Date", format="MM-DD-YYYY")
