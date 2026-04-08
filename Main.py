@@ -127,6 +127,7 @@ else:
         ],
         "Views": [
             st.Page("pages/01_Dashboard.py", title="Dashboard", icon="📊"),
+            st.Page("pages/02_Notifications.py", title=notif_title, icon=notif_icon),
             st.Page("pages/03_Timeline_View.py", title="Timeline View", icon="📅"),
             st.Page("pages/04_Calendar_View.py", title="Calendar View", icon="🗓️"),
             st.Page("pages/05_Gantt_Chart_View.py", title="Gantt Chart", icon="📈"),
@@ -139,10 +140,9 @@ else:
             st.Page("pages/10_Bulk_Edit_and_Duplicate.py", title="Bulk Edit & Duplicate", icon="⚙️"),
             st.Page("pages/06_Three_Year_Task_View.py", title="Three Year Task Manager", icon="📆"),
         ],
-        "Settings & Help": [
-            st.Page("pages/02_Notifications.py", title=notif_title, icon=notif_icon),
-            st.Page("pages/12_User_Settings.py", title="User Settings", icon="🔧"),
+        "Help": [
             st.Page("pages/13_End_User_Manual.py", title="End User Manual", icon="📖"),
+            st.Page("pages/16_Admin_Manual.py", title="Admin Manual", icon="📋"),
             st.Page("pages/14_About.py", title="About", icon="ℹ️"),
         ],
     }
@@ -150,7 +150,7 @@ else:
     if user_role == 'admin':
         pages["Admin"] = [
             st.Page("pages/15_Admin_Dashboard.py", title="Admin Dashboard", icon="🛡️"),
-            st.Page("pages/16_Admin_Manual.py", title="Admin Manual", icon="📋"),
+            st.Page("pages/12_User_Settings.py", title="User Settings", icon="🔧"),
             st.Page("pages/17_Admin_Presets_Overview.py", title="Presets Overview", icon="📊"),
         ]
 
