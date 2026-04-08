@@ -16,13 +16,12 @@ def get_api_data(endpoint):
     """Generic function to fetch data from the GitHub API."""
     REPO_OWNER = "tnoeldner"
     REPO_NAME = "hrl-project-tracker"
-    TOKEN = st.secrets.get("GITHUB_TOKEN")
-    
-    if not TOKEN:
-        return None, "GitHub token not found. Please configure it in your Streamlit secrets."
 
     url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/{endpoint}"
-    headers = {"Authorization": f"token {TOKEN}"}
+    headers = {"Accept": "application/vnd.github+json"}
+    TOKEN = st.secrets.get("GITHUB_TOKEN")
+    if TOKEN:
+        headers["Authorization"] = f"token {TOKEN}"
     
     try:
         response = requests.get(url, headers=headers)
