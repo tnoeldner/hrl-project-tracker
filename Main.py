@@ -97,7 +97,7 @@ else:
         unread_count = len(unread_notifications) if unread_notifications is not None else 0
         
         # This should be the correct, numbered filename for your notifications page
-        notifications_page_path = "pages/2_Notifications.py" 
+        notifications_page_path = "pages/02_Notifications.py" 
         
         if unread_count > 0:
             st.sidebar.page_link(notifications_page_path, label=f"🔔 Notifications ({unread_count})")
