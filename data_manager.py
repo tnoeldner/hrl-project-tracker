@@ -13,6 +13,8 @@ import uuid
 import os
 import json
 import sqlite3
+import hashlib
+import secrets as _secrets
 try:
     import boto3
     from botocore.exceptions import BotoCoreError, NoCredentialsError
@@ -34,6 +36,28 @@ def format_fy(year):
         return f"FY{str(y + 1)[-2:]}"
     except (ValueError, TypeError):
         return str(year)
+
+def hash_password(password):
+    """Hash a password with a random salt using SHA-256. Returns 'salt:hash' string."""
+    salt = _secrets.token_hex(16)
+    pw_hash = hashlib.sha256((salt + password).encode('utf-8')).hexdigest()
+    return f"{salt}:{pw_hash}"
+
+def verify_password(password, stored):
+    """Verify a password against a stored 'salt:hash' string.
+
+    Also accepts legacy plain-text passwords (no colon) for backward compatibility.
+    If a plain-text match is found, returns True so the caller can re-hash and update.
+    """
+    if stored is None:
+        return False
+    stored = str(stored)
+    if ':' in stored and len(stored) == 97:  # 32-char salt + ':' + 64-char hash
+        salt, expected_hash = stored.split(':', 1)
+        pw_hash = hashlib.sha256((salt + password).encode('utf-8')).hexdigest()
+        return pw_hash == expected_hash
+    # Legacy plain-text comparison
+    return stored == password
 
 def _safe_secret(key, default=None):
     """Return secret value or default without raising if secrets.toml is missing."""
@@ -555,16 +579,21 @@ def delete_filter_preset(user_email, preset_name):
 
 # --- iCalendar generation & publishing ---
 def generate_calendar_from_tasks(tasks_df):
-    """Return an icalendar.Calendar built from the tasks DataFrame."""
+    """Return an icalendar.Calendar built from the tasks DataFrame.
+
+    Uses the icalendar library to produce an object compatible with .to_ical() and .walk().
+    For byte-level ICS output (user downloads), prefer ics_export.generate_ics_from_df() instead.
+    """
     cal = Calendar()
-    cal.add('prodid', '-//HRL Project Tracker//mxm.dk//')
+    cal.add('prodid', '-//HRL Project Tracker//EN')
     cal.add('version', '2.0')
+    cal.add('method', 'PUBLISH')
+    cal.add('x-wr-calname', 'HRL Project Tracker')
 
     if tasks_df is None or tasks_df.empty:
         return cal
 
     for _, row in tasks_df.iterrows():
-        # Only include tasks with start or end
         start = row.get('START')
         end = row.get('END')
         if pd.isna(start) and pd.isna(end):
@@ -575,16 +604,16 @@ def generate_calendar_from_tasks(tasks_df):
         ev.add('uid', uid_val + '@hrl-project-tracker')
         ev.add('summary', str(row.get('TASK', 'No Title')))
         if pd.notna(start):
-            # icalendar expects datetime/date objects
             ev.add('dtstart', start)
         if pd.notna(end):
-            # Increment end by one day if it's a date to be inclusive? Keep as-is.
             ev.add('dtend', end)
-        # Add description with some helpful fields
         desc = []
         desc.append(f"Planner Bucket: {row.get('PLANNER BUCKET', '')}")
         desc.append(f"Assignment Title: {row.get('ASSIGNMENT TITLE', '')}")
         desc.append(f"Progress: {row.get('PROGRESS', '')}")
+        fy = row.get('Fiscal Year', '')
+        if fy:
+            desc.append(f"Fiscal Year: {format_fy(fy)}")
         ev.add('description', '\n'.join(desc))
         cal.add_component(ev)
 

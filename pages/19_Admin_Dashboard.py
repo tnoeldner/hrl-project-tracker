@@ -232,7 +232,7 @@ if all(df is not None for df in [icons_df_original, tasks_df_original, users_df_
                     users_df_updated.loc[users_df_updated['email'] == selected_user_for_edit, 'status'] = new_status
                     users_df_updated.loc[users_df_updated['email'] == selected_user_for_edit, 'assignment_title'] = new_assignment_title
                     if new_password:
-                        users_df_updated.loc[users_df_updated['email'] == selected_user_for_edit, 'password'] = new_password
+                        users_df_updated.loc[users_df_updated['email'] == selected_user_for_edit, 'password'] = data_manager.hash_password(new_password)
                     
                     settings_df_updated = settings_df_original.copy()
                     if selected_user_for_edit not in settings_df_updated['email'].values:

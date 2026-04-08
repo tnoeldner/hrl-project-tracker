@@ -13,7 +13,12 @@ def check_login(username, password):
         return None, "Error loading user data."
     
     user_record = users_df[users_df['email'] == username]
-    if not user_record.empty and user_record.iloc[0]['password'] == password:
+    if not user_record.empty and data_manager.verify_password(password, user_record.iloc[0]['password']):
+        # If login succeeded with a legacy plain-text password, upgrade to hashed
+        stored = str(user_record.iloc[0]['password'])
+        if ':' not in stored or len(stored) != 97:
+            users_df.loc[users_df['email'] == username, 'password'] = data_manager.hash_password(password)
+            data_manager.save_table(users_df, 'users')
         # Check if the user is active
         if user_record.iloc[0].get('status', 'active') == 'active':
             return user_record.iloc[0].to_dict(), "Login successful."
@@ -68,7 +73,7 @@ if st.session_state.logged_in_user is None:
                         st.warning("Please fill out all fields.")
                     else:
                         new_user = pd.DataFrame([{
-                            "email": email, "password": "changeme", "first_name": first_name,
+                            "email": email, "password": data_manager.hash_password("changeme"), "first_name": first_name,
                             "last_name": last_name, "assignment_title": assignment_title, 
                             "role": "viewer", "status": "active"
                         }])
@@ -108,7 +113,7 @@ else:
         if st.button("Update Password"):
             if new_password:
                 users_df = data_manager.load_table('users')
-                users_df.loc[users_df['email'] == user_email, 'password'] = new_password
+                users_df.loc[users_df['email'] == user_email, 'password'] = data_manager.hash_password(new_password)
                 data_manager.save_table(users_df, 'users')
                 st.success("Password updated successfully!")
             else:

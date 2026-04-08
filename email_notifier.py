@@ -2,7 +2,7 @@
 import pandas as pd
 from datetime import datetime, timedelta
 import smtplib
-from email.mime.multipart import MIMIMultipart
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import json
 import data_manager
@@ -60,7 +60,7 @@ def send_weekly_email(user_email, user_data, tasks_df):
 # --- MAIN SCRIPT ---
 def main():
     print("Starting notification process...")
-    df = data_manager.load_data()
+    df = data_manager.load_table('tasks')
     users = load_users()
     settings = load_user_settings()
 
