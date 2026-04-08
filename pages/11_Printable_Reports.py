@@ -305,7 +305,6 @@ def find_task_bucket_duplicates(df):
     return dupes.sort_values(sort_cols) if not dupes.empty else dupes
 
 # --- Page UI ---
-st.set_page_config(page_title="Printable Reports", layout="wide")
 st.title("📄 Printable Reports")
 df = data_manager.load_table('tasks')
 

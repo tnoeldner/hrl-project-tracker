@@ -3,7 +3,6 @@ import streamlit as st
 import pandas as pd
 import data_manager
 
-st.set_page_config(page_title="Three-Year Task View", layout="wide")
 st.title("📊 Three-Year Task Table View")
 
 df_original = data_manager.load_table('tasks')

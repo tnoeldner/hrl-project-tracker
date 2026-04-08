@@ -12,7 +12,6 @@ if user_role != 'admin':
     st.error("You do not have permission to view this page. This page is for administrators only.")
     st.stop()
 
-st.set_page_config(page_title="Admin — Presets Overview", layout="wide")
 st.title("🔍 Presets Overview (Read-only)")
 st.markdown("This page provides a read-only overview of saved filter presets and related usage statistics.")
 

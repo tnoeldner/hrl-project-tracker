@@ -63,7 +63,6 @@ def get_commit_history():
     return history
 
 # --- PAGE UI ---
-st.set_page_config(page_title="About", layout="wide")
 st.title("ℹ️ About This Application")
 st.markdown("---")
 

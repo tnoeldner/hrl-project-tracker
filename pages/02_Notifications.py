@@ -10,7 +10,7 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
     st.stop()
 # --------------------------
 
-st.set_page_config(page_title="Notifications", layout="wide")
+
 st.title("🔔 My Notifications")
 
 user_email = st.session_state.logged_in_user

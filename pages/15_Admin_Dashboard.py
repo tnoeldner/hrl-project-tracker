@@ -14,7 +14,6 @@ if user_role != 'admin':
     st.stop()
 # --------------------------
 
-st.set_page_config(page_title="Admin Dashboard", layout="wide")
 st.title("👑 Admin Dashboard")
 st.info("This dashboard provides tools for managing application-wide settings.")
 

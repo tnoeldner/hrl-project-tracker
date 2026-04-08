@@ -11,7 +11,6 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
     st.stop()
 # --------------------------
 
-st.set_page_config(page_title="Dashboard", layout="wide")
 st.title("📊 Dashboard Report")
 
 df_original = data_manager.load_table('tasks')

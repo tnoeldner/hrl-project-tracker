@@ -39,7 +39,6 @@ def create_help_pdf(sections):
     return bytes(pdf.output())
 
 # --- PAGE UI ---
-st.set_page_config(page_title="End User Manual", layout="wide")
 st.title("📖 HRL Project Tracker End User Manual")
 
 # --- MANUAL CONTENT ---

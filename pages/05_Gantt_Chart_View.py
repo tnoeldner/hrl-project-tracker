@@ -21,7 +21,6 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
 
 # (The rest of the file remains the same)
 # ...
-st.set_page_config(page_title="Gantt Chart", layout="wide")
 st.title("📊 Interactive Gantt Chart View")
 
 df = data_manager.load_table('tasks')

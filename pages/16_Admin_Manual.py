@@ -15,7 +15,6 @@ if user_role != 'admin':
 # --------------------------
 
 # --- PAGE UI ---
-st.set_page_config(page_title="Admin Manual", layout="wide")
 st.title("🛠️ Administrator & Programmer's Manual")
 st.info("This manual provides a technical overview of the HRL Project Tracker for maintenance and updates.")
 st.markdown("---")

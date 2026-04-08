@@ -9,7 +9,6 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
     st.stop()
 # --------------------------
 
-st.set_page_config(page_title="User Settings", layout="wide")
 st.title("⚙️ My Settings")
 
 # --- Load Data ---

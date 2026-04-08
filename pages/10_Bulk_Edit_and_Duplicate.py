@@ -11,7 +11,6 @@ if 'logged_in_user' not in st.session_state or st.session_state.logged_in_user i
     st.stop()
 # --------------------------
 
-st.set_page_config(page_title="Bulk Edit & Duplicate", layout="wide")
 st.title("⚙️ Bulk Edit & Duplicate Tasks")
 
 df_original = data_manager.load_table('tasks')
