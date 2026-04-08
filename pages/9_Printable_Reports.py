@@ -95,7 +95,7 @@ def create_bucket_report(df, selected_bucket, selected_year):
     pdf = FPDF(orientation="L")
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, f"Report for {selected_bucket} - FY {selected_year}", ln=True, align='C')
+    pdf.cell(0, 10, f"Report for {selected_bucket} - {data_manager.format_fy(selected_year)}", ln=True, align='C')
     pdf.ln(10)
 
     bucket_df = df[(df['PLANNER BUCKET'] == selected_bucket) & (df['Fiscal Year'] == selected_year)]
@@ -173,7 +173,7 @@ def create_comparison_report(df, year1, year2):
     pdf = FPDF(orientation="L")
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, f"Task Comparison Report: FY{year1} vs. FY{year2}", ln=True, align='C')
+    pdf.cell(0, 10, f"Task Comparison Report: {data_manager.format_fy(year1)} vs. {data_manager.format_fy(year2)}", ln=True, align='C')
     pdf.ln(10)
 
     df_year1 = df[df['Fiscal Year'] == year1].dropna(subset=['TASK'])
@@ -206,8 +206,8 @@ def create_comparison_report(df, year1, year2):
             pdf.cell(0, 8, "None", ln=True)
         pdf.ln(10)
 
-    write_task_table(pdf, f"Tasks Added in FY{year2}", added_tasks, df_year2)
-    write_task_table(pdf, f"Tasks Removed from FY{year1}", removed_tasks, df_year1)
+    write_task_table(pdf, f"Tasks Added in {data_manager.format_fy(year2)}", added_tasks, df_year2)
+    write_task_table(pdf, f"Tasks Removed from {data_manager.format_fy(year1)}", removed_tasks, df_year1)
     
     pdf.set_font("Helvetica", "B", 14)
     pdf.cell(0, 10, f"Tasks Common to Both Years ({len(common_tasks)} total)", ln=True)
@@ -228,8 +228,8 @@ def create_comparison_report(df, year1, year2):
                 pdf.set_font("Helvetica", "B", 9)
                 pdf.multi_cell(0, 8, f"- {task_name}", ln=True)
                 pdf.set_font("Helvetica", "", 8)
-                pdf.cell(0, 6, f"  FY{year1}: {format_date(task1['START'], '%m-%d-%Y')} to {format_date(task1['END'], '%m-%d-%Y')}", ln=True)
-                pdf.cell(0, 6, f"  FY{year2}: {format_date(task2['START'], '%m-%d-%Y')} to {format_date(task2['END'], '%m-%d-%Y')}", ln=True)
+                pdf.cell(0, 6, f"  {data_manager.format_fy(year1)}: {format_date(task1['START'], '%m-%d-%Y')} to {format_date(task1['END'], '%m-%d-%Y')}", ln=True)
+                pdf.cell(0, 6, f"  {data_manager.format_fy(year2)}: {format_date(task2['START'], '%m-%d-%Y')} to {format_date(task2['END'], '%m-%d-%Y')}", ln=True)
                 pdf.ln(4)
     else:
         pdf.set_font("Helvetica", "", 10)
@@ -243,7 +243,7 @@ def create_bucket_multi_year_report(df, years):
     pdf = FPDF(orientation="L")
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, f"Bucket Task Timeline (FY {years[0]}, {years[1]}, {years[2]})", ln=True, align='C')
+    pdf.cell(0, 10, f"Bucket Task Timeline ({data_manager.format_fy(years[0])}, {data_manager.format_fy(years[1])}, {data_manager.format_fy(years[2])})", ln=True, align='C')
     pdf.ln(8)
 
     buckets = sorted(df['PLANNER BUCKET'].dropna().unique())
@@ -260,7 +260,7 @@ def create_bucket_multi_year_report(df, years):
 
         headers = ["Task"]
         for y in years:
-            headers.extend([f"FY{y} Start", f"FY{y} End"])
+            headers.extend([f"{data_manager.format_fy(y)} Start", f"{data_manager.format_fy(y)} End"])
 
         table_data = [headers]
         tasks = sorted(bucket_df['TASK'].dropna().unique())
@@ -323,10 +323,10 @@ if df is not None:
         selected_bucket = st.selectbox("Select a Planner Bucket", options=bucket_options)
     with col2:
         year_options_bucket = sorted(df['Fiscal Year'].unique().tolist())
-        selected_year_bucket = st.selectbox("Select a Fiscal Year", options=year_options_bucket)
+        selected_year_bucket = st.selectbox("Select a Fiscal Year", options=year_options_bucket, format_func=lambda x: data_manager.format_fy(x))
     if selected_bucket and selected_year_bucket:
         st.download_button(
-            label=f"📥 Download {selected_bucket} - FY{selected_year_bucket} Report",
+            label=f"📥 Download {selected_bucket} - {data_manager.format_fy(selected_year_bucket)} Report",
             data=create_bucket_report(df, selected_bucket, selected_year_bucket),
             file_name=f"{selected_bucket}_{selected_year_bucket}_Report.pdf",
             mime="application/pdf"
@@ -336,7 +336,7 @@ if df is not None:
     col1, col2 = st.columns(2)
     with col1:
         year_options = sorted(df['Fiscal Year'].unique().tolist())
-        selected_year_cal = st.selectbox("Select a Year", options=year_options, index=len(year_options)-1)
+        selected_year_cal = st.selectbox("Select a Year", options=year_options, index=len(year_options)-1, format_func=lambda x: data_manager.format_fy(x))
     with col2:
         month_names = [py_calendar.month_name[i] for i in range(1, 13)]
         month_options = ["Full Year"] + month_names
@@ -366,13 +366,13 @@ if df is not None:
     col1, col2 = st.columns(2)
     with col1:
         year_options_comp = sorted(df['Fiscal Year'].unique().tolist())
-        year1 = st.selectbox("Select the first year (older)", options=year_options_comp, index=0)
+        year1 = st.selectbox("Select the first year (older)", options=year_options_comp, index=0, format_func=lambda x: data_manager.format_fy(x))
     with col2:
-        year2 = st.selectbox("Select the second year (newer)", options=year_options_comp, index=len(year_options_comp)-1)
+        year2 = st.selectbox("Select the second year (newer)", options=year_options_comp, index=len(year_options_comp)-1, format_func=lambda x: data_manager.format_fy(x))
     if year1 and year2 and year1 != year2:
         comparison_pdf = create_comparison_report(df, year1, year2)
         st.download_button(
-            label=f"📥 Download Comparison PDF for FY{year1} vs. FY{year2}",
+            label=f"📥 Download Comparison PDF for {data_manager.format_fy(year1)} vs. {data_manager.format_fy(year2)}",
             data=comparison_pdf,
             file_name=f"Comparison_Report_{year1}_vs_{year2}.pdf",
             mime="application/pdf",
@@ -385,11 +385,11 @@ if df is not None:
     st.subheader("Bucket Task Timeline (3 Years)")
     year_options_timeline = sorted(df['Fiscal Year'].unique().tolist())
     default_years = year_options_timeline[-3:] if len(year_options_timeline) >= 3 else year_options_timeline
-    selected_years = st.multiselect("Pick exactly three fiscal years", options=year_options_timeline, default=default_years)
+    selected_years = st.multiselect("Pick exactly three fiscal years", options=year_options_timeline, default=default_years, format_func=lambda x: data_manager.format_fy(x))
     if len(selected_years) == 3:
         timeline_pdf = create_bucket_multi_year_report(df, selected_years)
         st.download_button(
-            label=f"📥 Download Bucket Timeline for FY {selected_years[0]}, {selected_years[1]}, {selected_years[2]}",
+            label=f"📥 Download Bucket Timeline for {data_manager.format_fy(selected_years[0])}, {data_manager.format_fy(selected_years[1])}, {data_manager.format_fy(selected_years[2])}",
             data=timeline_pdf,
             file_name=f"Bucket_Timeline_FY_{selected_years[0]}_{selected_years[1]}_{selected_years[2]}.pdf",
             mime="application/pdf",

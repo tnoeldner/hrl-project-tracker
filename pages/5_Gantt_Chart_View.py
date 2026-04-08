@@ -98,7 +98,7 @@ if df is not None:
             y=y_field,
             color=color_field,
             hover_name="TASK",
-            title=f"Project Timeline for FY {selected_year}"
+            title=f"Project Timeline for {data_manager.format_fy(selected_year)}"
         )
 
         # Improve the layout and set the initial zoom from the date pickers
@@ -232,7 +232,7 @@ if df is not None:
         # Provide a CSV download of the currently visible tasks
         try:
             csv_bytes = visible_df.to_csv(index=False).encode('utf-8')
-            st.download_button("Download visible tasks (CSV)", data=csv_bytes, file_name=f"gantt_visible_tasks_{selected_year}.csv", mime='text/csv')
+            st.download_button("Download visible tasks (CSV)", data=csv_bytes, file_name=f"gantt_visible_tasks_{data_manager.format_fy(selected_year)}.csv", mime='text/csv')
         except Exception:
             pass
 
@@ -251,11 +251,11 @@ if df is not None:
                 try:
                     # PNG export
                     img_bytes = fig.to_image(format='png', engine='kaleido', width=1200, height=800, scale=2)
-                    st.download_button("Export chart as PNG", data=img_bytes, file_name=f"gantt_{selected_year}.png", mime='image/png')
+                    st.download_button("Export chart as PNG", data=img_bytes, file_name=f"gantt_{data_manager.format_fy(selected_year)}.png", mime='image/png')
 
                     # SVG export
                     svg_bytes = fig.to_image(format='svg', engine='kaleido', width=1200, height=800)
-                    st.download_button("Export chart as SVG", data=svg_bytes, file_name=f"gantt_{selected_year}.svg", mime='image/svg+xml')
+                    st.download_button("Export chart as SVG", data=svg_bytes, file_name=f"gantt_{data_manager.format_fy(selected_year)}.svg", mime='image/svg+xml')
                 except Exception as e:
                     st.warning(f"Could not export chart images: {e}")
         else:
@@ -264,7 +264,7 @@ if df is not None:
         # Always offer an interactive HTML export as a reliable fallback
         try:
             html = fig.to_html(include_plotlyjs='cdn')
-            st.download_button("Download interactive HTML", data=html, file_name=f"gantt_{selected_year}.html", mime='text/html')
+            st.download_button("Download interactive HTML", data=html, file_name=f"gantt_{data_manager.format_fy(selected_year)}.html", mime='text/html')
         except Exception as e:
             st.warning(f"Could not prepare interactive HTML export: {e}")
 
@@ -279,7 +279,7 @@ if df is not None:
                     st.session_state['selected_task_id'] = task_id
                     st.rerun()
     else:
-        st.warning(f"No valid tasks to display for the selected Fiscal Year ({selected_year}).")
+        st.warning(f"No valid tasks to display for the selected Fiscal Year ({data_manager.format_fy(selected_year)}).")
 
 else:
     st.warning("Could not load data.")

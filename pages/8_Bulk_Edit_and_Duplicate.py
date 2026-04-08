@@ -28,7 +28,7 @@ if df_original is not None:
         # Ensure only valid integer years are in the options
         year_values = pd.to_numeric(df_original['Fiscal Year'], errors='coerce').dropna().unique()
         year_options = sorted([int(y) for y in year_values])
-        selected_year = st.selectbox("Filter by Fiscal Year", options=year_options, index=len(year_options)-1 if year_options else 0)
+        selected_year = st.selectbox("Filter by Fiscal Year", options=year_options, index=len(year_options)-1 if year_options else 0, format_func=lambda x: data_manager.format_fy(x))
 
     # Ensure the 'Fiscal Year' column is numeric before filtering
     df_original['Fiscal Year'] = pd.to_numeric(df_original['Fiscal Year'], errors='coerce')
@@ -41,7 +41,7 @@ if df_original is not None:
 
         with tab1:
             # --- QUICK EDIT & DELETE SECTION ---
-            st.subheader(f"Quick Edit or Delete for {selected_bucket} - FY{selected_year}")
+            st.subheader(f"Quick Edit or Delete for {selected_bucket} - {data_manager.format_fy(selected_year)}")
             filtered_df['Delete'] = False
             column_order = ['Delete', 'ASSIGNMENT TITLE', 'PROGRESS', 'TASK', 'SEMESTER', 'AUDIENCE', 'START', 'END']
             edited_df = st.data_editor(filtered_df[column_order], hide_index=True, key="quick_edit_table", column_config={
@@ -73,7 +73,7 @@ if df_original is not None:
 
         with tab2:
             # --- EXPORT AND IMPORT SECTION ---
-            st.subheader(f"Export and Import for {selected_bucket} - FY{selected_year}")
+            st.subheader(f"Export and Import for {selected_bucket} - {data_manager.format_fy(selected_year)}")
             
             @st.cache_data
             def to_excel(df_export):
@@ -88,7 +88,7 @@ if df_original is not None:
             st.download_button(
                 label="📥 Download Filtered Tasks (.xlsx)",
                 data=to_excel(filtered_df),
-                file_name=f"{selected_bucket}_FY{selected_year}_tasks.xlsx"
+                file_name=f"{selected_bucket}_{data_manager.format_fy(selected_year)}_tasks.xlsx"
             )
             
             st.write("---")
@@ -307,7 +307,7 @@ if df_original is not None:
         st.markdown("---")
         # --- 3. DUPLICATION SECTION ---
         st.subheader(f"Duplicate Tasks for a New Fiscal Year")
-        st.write(f"This will copy all **{len(filtered_df)}** tasks from your current filter ({selected_bucket} - FY{selected_year}).")
+        st.write(f"This will copy all **{len(filtered_df)}** tasks from your current filter ({selected_bucket} - {data_manager.format_fy(selected_year)}).")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -316,7 +316,7 @@ if df_original is not None:
         with col2:
             days_to_shift = st.number_input("Days to shift dates forward:", value=364)
 
-        if st.button(f"Duplicate Tasks to FY{new_fy}"):
+        if st.button(f"Duplicate Tasks to {data_manager.format_fy(new_fy)}"):
             duplicated_tasks = filtered_df.copy()
             
             duplicated_tasks['Fiscal Year'] = new_fy
@@ -330,7 +330,7 @@ if df_original is not None:
             df_after_duplication = pd.concat([df_original, duplicated_tasks], ignore_index=True)
             
             if data_manager.save_and_log_changes(df_original, df_after_duplication):
-                st.success(f"Successfully duplicated and logged {len(duplicated_tasks)} tasks to FY{new_fy}!")
+                st.success(f"Successfully duplicated and logged {len(duplicated_tasks)} tasks to {data_manager.format_fy(new_fy)}!")
                 st.balloons()
                 st.rerun()
     else:
