@@ -116,9 +116,11 @@ if df_original is not None and users_df is not None:
 
                     d_col1, d_col2 = st.columns(2)
                     with d_col1:
-                        edit_start = st.date_input("Start Date", value=pd.to_datetime(task_row['START']).date(), format="MM-DD-YYYY")
+                        start_val = pd.to_datetime(task_row['START'])
+                        edit_start = st.date_input("Start Date", value=start_val.date() if pd.notna(start_val) else None, format="MM-DD-YYYY")
                     with d_col2:
-                        edit_end = st.date_input("End Date", value=pd.to_datetime(task_row['END']).date(), format="MM-DD-YYYY")
+                        end_val = pd.to_datetime(task_row['END'])
+                        edit_end = st.date_input("End Date", value=end_val.date() if pd.notna(end_val) else None, format="MM-DD-YYYY")
 
                     save_edit = st.form_submit_button("💾 Save Changes", type="primary")
                     if save_edit:
