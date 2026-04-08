@@ -1,4 +1,4 @@
-# File: pages/16_Admin_Manual.py
+# File: 13_Admin_Manual.py
 import streamlit as st
 
 # --- AUTHENTICATION CHECK ---
