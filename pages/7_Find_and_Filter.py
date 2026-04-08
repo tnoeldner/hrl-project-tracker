@@ -27,7 +27,7 @@ if df_original is not None and users_df is not None:
         year_options = ['All'] + sorted([str(item) for item in df_original['Fiscal Year'].unique()])
         st.selectbox("Filter by Fiscal Year", options=year_options, key="find_year_filter", format_func=lambda x: data_manager.format_fy(x))
     with col3:
-        search_term = st.text_input("Search by Task Name (case-insensitive)")
+        search_term = st.text_input("Search across all fields (case-insensitive)")
 
     # Apply filters sequentially
     filtered_df = df_original.copy()
@@ -36,7 +36,8 @@ if df_original is not None and users_df is not None:
     if 'find_year_filter' in st.session_state and st.session_state.find_year_filter != 'All':
         filtered_df = filtered_df[filtered_df['Fiscal Year'].astype(str) == st.session_state.find_year_filter]
     if search_term:
-        filtered_df = filtered_df[filtered_df['TASK'].astype(str).str.contains(search_term, case=False, na=False)]
+        mask = filtered_df.apply(lambda row: row.astype(str).str.contains(search_term, case=False, na=False).any(), axis=1)
+        filtered_df = filtered_df[mask]
 
     st.markdown("---")
 
