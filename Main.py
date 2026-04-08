@@ -130,14 +130,14 @@ else:
             st.Page("pages/03_Timeline_View.py", title="Timeline View", icon="📅"),
             st.Page("pages/04_Calendar_View.py", title="Calendar View", icon="🗓️"),
             st.Page("pages/05_Gantt_Chart_View.py", title="Gantt Chart", icon="📈"),
-            st.Page("pages/06_Three_Year_Task_View.py", title="Three Year View", icon="📆"),
             st.Page("pages/07_Workload_View.py", title="Workload View", icon="👥"),
+            st.Page("pages/11_Printable_Reports.py", title="Printable Reports", icon="📄"),
         ],
         "Manage Tasks": [
             st.Page("pages/08_Find_and_Filter.py", title="Find & Filter", icon="🔍"),
             st.Page("pages/09_Add_a_New_Task.py", title="Add a New Task", icon="➕"),
             st.Page("pages/10_Bulk_Edit_and_Duplicate.py", title="Bulk Edit & Duplicate", icon="⚙️"),
-            st.Page("pages/11_Printable_Reports.py", title="Printable Reports", icon="📄"),
+            st.Page("pages/06_Three_Year_Task_View.py", title="Three Year Task Manager", icon="📆"),
         ],
         "Settings & Help": [
             st.Page("pages/02_Notifications.py", title=notif_title, icon=notif_icon),
