@@ -358,65 +358,62 @@ if df_original is not None:
                                 del st.session_state['bulk_upload_proposed_csv']
                                 st.rerun()
 
-        with tab3:
-            # --- QUICK PROGRESS UPDATE SECTION ---
-            st.subheader(f"Quick Progress Update — All Buckets for {data_manager.format_fy(selected_year)}")
-            st.info("Update progress on any task for the selected fiscal year across all planner buckets. Only the Progress column is editable here.")
-            all_year_df = df_original[df_original['Fiscal Year'] == selected_year][['TASK', 'ASSIGNMENT TITLE', 'PLANNER BUCKET', 'PROGRESS']].copy()
-            if all_year_df.empty:
-                st.warning("No tasks found for the selected fiscal year.")
-            else:
-                edited_progress_df = st.data_editor(
-                    all_year_df,
-                    hide_index=True,
-                    key="quick_progress_table",
-                    column_config={
-                        "TASK": st.column_config.TextColumn("Task", disabled=True),
-                        "ASSIGNMENT TITLE": st.column_config.TextColumn("Assignment Title", disabled=True),
-                        "PLANNER BUCKET": st.column_config.TextColumn("Planner Bucket", disabled=True),
-                        "PROGRESS": st.column_config.SelectboxColumn(
-                            "Progress",
-                            options=["NOT STARTED", "IN PROGRESS", "COMPLETE"],
-                            required=True
-                        ),
-                    },
-                )
-                if st.button("💾 Save Progress Updates", key="save_progress_updates"):
-                    df_updated = df_original.copy()
-                    df_updated.update(edited_progress_df)
-                    if data_manager.save_and_log_changes(df_original, df_updated):
-                        st.success("Progress updates saved successfully!")
-                        st.rerun()
+    with tab3:
+        # --- QUICK PROGRESS UPDATE SECTION ---
+        st.subheader(f"Quick Progress Update — All Buckets for {data_manager.format_fy(selected_year)}")
+        st.info("Update progress on any task for the selected fiscal year across all planner buckets. Only the Progress column is editable here.")
+        all_year_df = df_original[df_original['Fiscal Year'] == selected_year][['TASK', 'ASSIGNMENT TITLE', 'PLANNER BUCKET', 'PROGRESS']].copy()
+        if all_year_df.empty:
+            st.warning("No tasks found for the selected fiscal year.")
+        else:
+            edited_progress_df = st.data_editor(
+                all_year_df,
+                hide_index=True,
+                key="quick_progress_table",
+                column_config={
+                    "TASK": st.column_config.TextColumn("Task", disabled=True),
+                    "ASSIGNMENT TITLE": st.column_config.TextColumn("Assignment Title", disabled=True),
+                    "PLANNER BUCKET": st.column_config.TextColumn("Planner Bucket", disabled=True),
+                    "PROGRESS": st.column_config.SelectboxColumn(
+                        "Progress",
+                        options=["NOT STARTED", "IN PROGRESS", "COMPLETE"],
+                        required=True
+                    ),
+                },
+            )
+            if st.button("💾 Save Progress Updates", key="save_progress_updates"):
+                df_updated = df_original.copy()
+                df_updated.update(edited_progress_df)
+                if data_manager.save_and_log_changes(df_original, df_updated):
+                    st.success("Progress updates saved successfully!")
+                    st.rerun()
 
-        st.markdown("---")
-        # --- 3. DUPLICATION SECTION ---
-        st.subheader(f"Duplicate Tasks for a New Fiscal Year")
-        st.write(f"This will copy all **{len(filtered_df)}** tasks from your current filter ({selected_bucket} - {data_manager.format_fy(selected_year)}).")
+    st.markdown("---")
+    # --- DUPLICATION SECTION ---
+    st.subheader(f"Duplicate Tasks for a New Fiscal Year")
+    st.write(f"This will copy all **{len(filtered_df)}** tasks from your current filter ({selected_bucket} - {data_manager.format_fy(selected_year)}).")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            default_new_fy = selected_year + 1 if isinstance(selected_year, int) else datetime.now().year + 1
-            new_fy = st.number_input("Enter New Fiscal Year:", min_value=2020, value=default_new_fy)
-        with col2:
-            days_to_shift = st.number_input("Days to shift dates forward:", value=364)
+    col1, col2 = st.columns(2)
+    with col1:
+        default_new_fy = selected_year + 1 if isinstance(selected_year, int) else datetime.now().year + 1
+        new_fy = st.number_input("Enter New Fiscal Year:", min_value=2020, value=default_new_fy)
+    with col2:
+        days_to_shift = st.number_input("Days to shift dates forward:", value=364)
 
-        if st.button(f"Duplicate Tasks to {data_manager.format_fy(new_fy)}"):
-            duplicated_tasks = filtered_df.copy()
-            
-            duplicated_tasks['Fiscal Year'] = new_fy
-            time_delta = pd.Timedelta(days=days_to_shift)
-            duplicated_tasks['START'] = duplicated_tasks['START'] + time_delta
-            duplicated_tasks['END'] = duplicated_tasks['END'] + time_delta
-            
-            last_id = df_original['#'].max()
-            duplicated_tasks['#'] = range(last_id + 1, last_id + 1 + len(duplicated_tasks))
-            
-            df_after_duplication = pd.concat([df_original, duplicated_tasks], ignore_index=True)
-            
-            if data_manager.save_and_log_changes(df_original, df_after_duplication):
-                st.success(f"Successfully duplicated and logged {len(duplicated_tasks)} tasks to {data_manager.format_fy(new_fy)}!")
-                st.balloons()
-                st.rerun()
+    if st.button(f"Duplicate Tasks to {data_manager.format_fy(new_fy)}"):
+        duplicated_tasks = filtered_df.copy()
+        duplicated_tasks['Fiscal Year'] = new_fy
+        time_delta = pd.Timedelta(days=days_to_shift)
+        duplicated_tasks['START'] = duplicated_tasks['START'] + time_delta
+        duplicated_tasks['END'] = duplicated_tasks['END'] + time_delta
+        last_id = df_original['#'].max()
+        duplicated_tasks['#'] = range(last_id + 1, last_id + 1 + len(duplicated_tasks))
+        df_after_duplication = pd.concat([df_original, duplicated_tasks], ignore_index=True)
+        if data_manager.save_and_log_changes(df_original, df_after_duplication):
+            st.success(f"Successfully duplicated and logged {len(duplicated_tasks)} tasks to {data_manager.format_fy(new_fy)}!")
+            st.balloons()
+            st.rerun()
+
 else:
     st.warning("Could not load data.")
 
