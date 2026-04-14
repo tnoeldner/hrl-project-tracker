@@ -36,7 +36,7 @@ if df_original is not None:
 
     if not filtered_df.empty:
         # Create tabs for the different actions
-        tab1, tab2 = st.tabs(["Quick Edit & Delete", "Export & Import Changes"])
+        tab1, tab2, tab3 = st.tabs(["Quick Edit & Delete", "Export & Import Changes", "⚡ Quick Progress Update"])
 
         with tab1:
             # --- QUICK EDIT & DELETE SECTION ---
@@ -302,6 +302,36 @@ if df_original is not None:
                                 # clear preview cache
                                 del st.session_state['bulk_upload_proposed_csv']
                                 st.rerun()
+
+        with tab3:
+            # --- QUICK PROGRESS UPDATE SECTION ---
+            st.subheader(f"Quick Progress Update — All Buckets for {data_manager.format_fy(selected_year)}")
+            st.info("Update progress on any task for the selected fiscal year across all planner buckets. Only the Progress column is editable here.")
+            all_year_df = df_original[df_original['Fiscal Year'] == selected_year][['TASK', 'ASSIGNMENT TITLE', 'PLANNER BUCKET', 'PROGRESS']].copy()
+            if all_year_df.empty:
+                st.warning("No tasks found for the selected fiscal year.")
+            else:
+                edited_progress_df = st.data_editor(
+                    all_year_df,
+                    hide_index=True,
+                    key="quick_progress_table",
+                    column_config={
+                        "TASK": st.column_config.TextColumn("Task", disabled=True),
+                        "ASSIGNMENT TITLE": st.column_config.TextColumn("Assignment Title", disabled=True),
+                        "PLANNER BUCKET": st.column_config.TextColumn("Planner Bucket", disabled=True),
+                        "PROGRESS": st.column_config.SelectboxColumn(
+                            "Progress",
+                            options=["NOT STARTED", "IN PROGRESS", "COMPLETE"],
+                            required=True
+                        ),
+                    },
+                )
+                if st.button("💾 Save Progress Updates", key="save_progress_updates"):
+                    df_updated = df_original.copy()
+                    df_updated.update(edited_progress_df)
+                    if data_manager.save_and_log_changes(df_original, df_updated):
+                        st.success("Progress updates saved successfully!")
+                        st.rerun()
 
         st.markdown("---")
         # --- 3. DUPLICATION SECTION ---

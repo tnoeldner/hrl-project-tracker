@@ -113,6 +113,61 @@ if df_original is not None:
     else:
         st.info(f"No upcoming tasks found for {data_manager.format_fy(st.session_state.dashboard_year_filter)}.")
 
+    st.markdown("---")
+
+    # --- FIND & EDIT A SINGLE TASK ---
+    with st.expander("🔍 Find & Edit a Single Task"):
+        st.write("Search for any task by name and edit it directly.")
+        all_task_options = df_original.apply(
+            lambda r: f"[{r.get('PLANNER BUCKET', '')}] {r.get('TASK', '')} — {data_manager.format_fy(r.get('Fiscal Year', ''))}",
+            axis=1
+        ).tolist()
+        selected_task_label = st.selectbox("Select a task to edit:", options=all_task_options, key="single_task_picker")
+        task_idx = all_task_options.index(selected_task_label)
+        task_row = df_original.iloc[task_idx].copy()
+
+        with st.form("single_task_edit_form"):
+            col_a, col_b = st.columns(2)
+            with col_a:
+                new_progress = st.selectbox(
+                    "Progress",
+                    options=["NOT STARTED", "IN PROGRESS", "COMPLETE"],
+                    index=["NOT STARTED", "IN PROGRESS", "COMPLETE"].index(task_row['PROGRESS'])
+                    if task_row['PROGRESS'] in ["NOT STARTED", "IN PROGRESS", "COMPLETE"] else 0
+                )
+                new_start = st.date_input(
+                    "Start Date",
+                    value=task_row['START'].date() if pd.notna(task_row['START']) and task_row['START'].year > 1901 else None,
+                    format="MM-DD-YYYY"
+                )
+                new_end = st.date_input(
+                    "End Date",
+                    value=task_row['END'].date() if pd.notna(task_row['END']) and task_row['END'].year > 1901 else None,
+                    format="MM-DD-YYYY"
+                )
+            with col_b:
+                new_semester = st.text_input("Semester", value=str(task_row.get('SEMESTER', '') or ''))
+                new_audience = st.text_input("Audience", value=str(task_row.get('AUDIENCE', '') or ''))
+                new_assignment = st.text_input("Assignment Title", value=str(task_row.get('ASSIGNMENT TITLE', '') or ''))
+
+            new_task_desc = st.text_area("Task Description", value=str(task_row.get('TASK', '') or ''))
+
+            save_single = st.form_submit_button("💾 Save Changes to This Task")
+            if save_single:
+                df_updated = df_original.copy()
+                df_updated.at[task_idx, 'PROGRESS'] = new_progress
+                df_updated.at[task_idx, 'START'] = pd.to_datetime(new_start)
+                df_updated.at[task_idx, 'END'] = pd.to_datetime(new_end)
+                df_updated.at[task_idx, 'SEMESTER'] = new_semester
+                df_updated.at[task_idx, 'AUDIENCE'] = new_audience
+                df_updated.at[task_idx, 'ASSIGNMENT TITLE'] = new_assignment
+                df_updated.at[task_idx, 'TASK'] = new_task_desc
+                if data_manager.save_and_log_changes(df_original, df_updated):
+                    st.success("Task updated successfully!")
+                    st.rerun()
+                else:
+                    st.error("Failed to save changes.")
+
 else:
     st.warning("Could not load data.")
 
