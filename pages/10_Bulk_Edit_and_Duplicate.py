@@ -38,94 +38,94 @@ if df_original is not None:
     tab1, tab2, tab3 = st.tabs(["Quick Edit & Delete", "Export & Import Changes", "⚡ Quick Progress Update"])
 
     with tab1:
-            # --- QUICK EDIT & DELETE SECTION ---
-            st.subheader(f"Quick Edit or Delete for {selected_bucket} - {data_manager.format_fy(selected_year)}")
-            st.caption("Edit existing rows, delete with the checkbox, or click the ➕ at the bottom of the table to add a new task.")
-            filtered_df['Delete'] = False
-            column_order = ['Delete', 'ASSIGNMENT TITLE', 'PROGRESS', 'TASK', 'SEMESTER', 'AUDIENCE', 'START', 'END']
-            edited_df = st.data_editor(
-                filtered_df[column_order],
-                hide_index=True,
-                num_rows="dynamic",
-                key="quick_edit_table",
-                column_config={
-                    "Delete": st.column_config.CheckboxColumn(required=True),
-                    "ASSIGNMENT TITLE": st.column_config.SelectboxColumn(
-                        "Assignment Title",
-                        options=sorted(df_original['ASSIGNMENT TITLE'].dropna().unique().tolist()),
-                        required=False
-                    ),
-                    "PROGRESS": st.column_config.SelectboxColumn(
-                        "Progress",
-                        options=["NOT STARTED", "IN PROGRESS", "COMPLETE"],
-                        required=False
-                    ),
-                    "SEMESTER": st.column_config.SelectboxColumn(
-                        "Semester",
-                        options=sorted(df_original['SEMESTER'].dropna().unique().tolist()),
-                        required=False
-                    ),
-                    "AUDIENCE": st.column_config.SelectboxColumn(
-                        "Audience",
-                        options=sorted(df_original['AUDIENCE'].dropna().unique().tolist()),
-                        required=False
-                    ),
-                    "START": st.column_config.DateColumn("Start Date", format="MM-DD-YYYY, dddd"),
-                    "END": st.column_config.DateColumn("End Date", format="MM-DD-YYYY, dddd"),
-                }
-            )
+        # --- QUICK EDIT & DELETE SECTION ---
+        st.subheader(f"Quick Edit or Delete for {selected_bucket} - {data_manager.format_fy(selected_year)}")
+        st.caption("Edit existing rows, delete with the checkbox, or click the ➕ at the bottom of the table to add a new task.")
+        filtered_df['Delete'] = False
+        column_order = ['Delete', 'ASSIGNMENT TITLE', 'PROGRESS', 'TASK', 'SEMESTER', 'AUDIENCE', 'START', 'END']
+        edited_df = st.data_editor(
+            filtered_df[column_order],
+            hide_index=True,
+            num_rows="dynamic",
+            key="quick_edit_table",
+            column_config={
+                "Delete": st.column_config.CheckboxColumn(required=True),
+                "ASSIGNMENT TITLE": st.column_config.SelectboxColumn(
+                    "Assignment Title",
+                    options=sorted(df_original['ASSIGNMENT TITLE'].dropna().unique().tolist()),
+                    required=False
+                ),
+                "PROGRESS": st.column_config.SelectboxColumn(
+                    "Progress",
+                    options=["NOT STARTED", "IN PROGRESS", "COMPLETE"],
+                    required=False
+                ),
+                "SEMESTER": st.column_config.SelectboxColumn(
+                    "Semester",
+                    options=sorted(df_original['SEMESTER'].dropna().unique().tolist()),
+                    required=False
+                ),
+                "AUDIENCE": st.column_config.SelectboxColumn(
+                    "Audience",
+                    options=sorted(df_original['AUDIENCE'].dropna().unique().tolist()),
+                    required=False
+                ),
+                "START": st.column_config.DateColumn("Start Date", format="MM-DD-YYYY, dddd"),
+                "END": st.column_config.DateColumn("End Date", format="MM-DD-YYYY, dddd"),
+            }
+        )
 
-            col_save, col_delete = st.columns(2)
-            with col_save:
-                if st.button("Save Quick Changes"):
-                    # Split into existing rows (have a valid original index) and new rows
-                    original_indices = set(filtered_df.index)
-                    existing_edited = edited_df.loc[edited_df.index.isin(original_indices)].drop(columns=['Delete'])
-                    new_rows = edited_df.loc[~edited_df.index.isin(original_indices)].drop(columns=['Delete'])
+        col_save, col_delete = st.columns(2)
+        with col_save:
+            if st.button("Save Quick Changes"):
+                # Split into existing rows (have a valid original index) and new rows
+                original_indices = set(filtered_df.index)
+                existing_edited = edited_df.loc[edited_df.index.isin(original_indices)].drop(columns=['Delete'])
+                new_rows = edited_df.loc[~edited_df.index.isin(original_indices)].drop(columns=['Delete'])
 
-                    df_updated = df_original.copy()
-                    # Apply edits to existing rows
-                    df_updated.update(existing_edited)
+                df_updated = df_original.copy()
+                # Apply edits to existing rows
+                df_updated.update(existing_edited)
 
-                    # Append new rows with defaults filled in
-                    if not new_rows.empty:
-                        next_id = int(df_updated['#'].max()) + 1
-                        new_records = []
-                        for _, row in new_rows.iterrows():
-                            if pd.isna(row.get('TASK')) or str(row.get('TASK', '')).strip() == '':
-                                continue  # skip completely empty rows
-                            record = {col: None for col in df_original.columns}
-                            record['#'] = next_id
-                            record['PLANNER BUCKET'] = selected_bucket
-                            record['Fiscal Year'] = selected_year
-                            record['PROGRESS'] = row.get('PROGRESS') or 'NOT STARTED'
-                            record['TASK'] = row.get('TASK')
-                            record['ASSIGNMENT TITLE'] = row.get('ASSIGNMENT TITLE')
-                            record['SEMESTER'] = row.get('SEMESTER')
-                            record['AUDIENCE'] = row.get('AUDIENCE')
-                            record['START'] = pd.to_datetime(row.get('START'), errors='coerce')
-                            record['END'] = pd.to_datetime(row.get('END'), errors='coerce')
-                            new_records.append(record)
-                            next_id += 1
-                        if new_records:
-                            df_updated = pd.concat([df_updated, pd.DataFrame(new_records)], ignore_index=True)
+                # Append new rows with defaults filled in
+                if not new_rows.empty:
+                    next_id = int(df_updated['#'].max()) + 1
+                    new_records = []
+                    for _, row in new_rows.iterrows():
+                        if pd.isna(row.get('TASK')) or str(row.get('TASK', '')).strip() == '':
+                            continue  # skip completely empty rows
+                        record = {col: None for col in df_original.columns}
+                        record['#'] = next_id
+                        record['PLANNER BUCKET'] = selected_bucket
+                        record['Fiscal Year'] = selected_year
+                        record['PROGRESS'] = row.get('PROGRESS') or 'NOT STARTED'
+                        record['TASK'] = row.get('TASK')
+                        record['ASSIGNMENT TITLE'] = row.get('ASSIGNMENT TITLE')
+                        record['SEMESTER'] = row.get('SEMESTER')
+                        record['AUDIENCE'] = row.get('AUDIENCE')
+                        record['START'] = pd.to_datetime(row.get('START'), errors='coerce')
+                        record['END'] = pd.to_datetime(row.get('END'), errors='coerce')
+                        new_records.append(record)
+                        next_id += 1
+                    if new_records:
+                        df_updated = pd.concat([df_updated, pd.DataFrame(new_records)], ignore_index=True)
 
-                    if data_manager.save_and_log_changes(df_original, df_updated):
-                        st.success("Changes saved and logged successfully!")
+                if data_manager.save_and_log_changes(df_original, df_updated):
+                    st.success("Changes saved and logged successfully!")
+                    st.rerun()
+        with col_delete:
+            if st.button("❌ Delete Selected Tasks", type="primary"):
+                rows_to_delete = edited_df[edited_df['Delete'] == True]
+                if not rows_to_delete.empty:
+                    indices_to_delete = rows_to_delete.index
+                    df_after_delete = df_original.drop(indices_to_delete)
+                    if data_manager.save_and_log_changes(df_original, df_after_delete):
+                        st.success(f"Successfully deleted and logged {len(indices_to_delete)} task(s)!")
                         st.rerun()
-            with col_delete:
-                if st.button("❌ Delete Selected Tasks", type="primary"):
-                    rows_to_delete = edited_df[edited_df['Delete'] == True]
-                    if not rows_to_delete.empty:
-                        indices_to_delete = rows_to_delete.index
-                        df_after_delete = df_original.drop(indices_to_delete)
-                        if data_manager.save_and_log_changes(df_original, df_after_delete):
-                            st.success(f"Successfully deleted and logged {len(indices_to_delete)} task(s)!")
-                            st.rerun()
-                    else:
-                        st.warning("No tasks were selected for deletion.")
+                else:
+                    st.warning("No tasks were selected for deletion.")
 
-        with tab2:
+    with tab2:
             # --- EXPORT AND IMPORT SECTION ---
             st.subheader(f"Export and Import for {selected_bucket} - {data_manager.format_fy(selected_year)}")
             
