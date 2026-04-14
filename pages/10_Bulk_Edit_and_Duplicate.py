@@ -34,27 +34,82 @@ if df_original is not None:
     
     filtered_df = df_original[(df_original['PLANNER BUCKET'] == selected_bucket) & (df_original['Fiscal Year'] == selected_year)].copy()
 
-    if not filtered_df.empty:
-        # Create tabs for the different actions
-        tab1, tab2, tab3 = st.tabs(["Quick Edit & Delete", "Export & Import Changes", "⚡ Quick Progress Update"])
+    # Create tabs for the different actions (always shown so users can add new tasks even for empty buckets)
+    tab1, tab2, tab3 = st.tabs(["Quick Edit & Delete", "Export & Import Changes", "⚡ Quick Progress Update"])
 
-        with tab1:
+    with tab1:
             # --- QUICK EDIT & DELETE SECTION ---
             st.subheader(f"Quick Edit or Delete for {selected_bucket} - {data_manager.format_fy(selected_year)}")
+            st.caption("Edit existing rows, delete with the checkbox, or click the ➕ at the bottom of the table to add a new task.")
             filtered_df['Delete'] = False
             column_order = ['Delete', 'ASSIGNMENT TITLE', 'PROGRESS', 'TASK', 'SEMESTER', 'AUDIENCE', 'START', 'END']
-            edited_df = st.data_editor(filtered_df[column_order], hide_index=True, key="quick_edit_table", column_config={
-                "Delete": st.column_config.CheckboxColumn(required=True),
-                "PROGRESS": st.column_config.SelectboxColumn("Progress", options=["NOT STARTED", "IN PROGRESS", "COMPLETE"], required=True),
-                "START": st.column_config.DateColumn("Start Date", format="MM-DD-YYYY, dddd"),
-                "END": st.column_config.DateColumn("End Date", format="MM-DD-YYYY, dddd")
-            })
-            
+            edited_df = st.data_editor(
+                filtered_df[column_order],
+                hide_index=True,
+                num_rows="dynamic",
+                key="quick_edit_table",
+                column_config={
+                    "Delete": st.column_config.CheckboxColumn(required=True),
+                    "ASSIGNMENT TITLE": st.column_config.SelectboxColumn(
+                        "Assignment Title",
+                        options=sorted(df_original['ASSIGNMENT TITLE'].dropna().unique().tolist()),
+                        required=False
+                    ),
+                    "PROGRESS": st.column_config.SelectboxColumn(
+                        "Progress",
+                        options=["NOT STARTED", "IN PROGRESS", "COMPLETE"],
+                        required=False
+                    ),
+                    "SEMESTER": st.column_config.SelectboxColumn(
+                        "Semester",
+                        options=sorted(df_original['SEMESTER'].dropna().unique().tolist()),
+                        required=False
+                    ),
+                    "AUDIENCE": st.column_config.SelectboxColumn(
+                        "Audience",
+                        options=sorted(df_original['AUDIENCE'].dropna().unique().tolist()),
+                        required=False
+                    ),
+                    "START": st.column_config.DateColumn("Start Date", format="MM-DD-YYYY, dddd"),
+                    "END": st.column_config.DateColumn("End Date", format="MM-DD-YYYY, dddd"),
+                }
+            )
+
             col_save, col_delete = st.columns(2)
             with col_save:
                 if st.button("Save Quick Changes"):
+                    # Split into existing rows (have a valid original index) and new rows
+                    original_indices = set(filtered_df.index)
+                    existing_edited = edited_df.loc[edited_df.index.isin(original_indices)].drop(columns=['Delete'])
+                    new_rows = edited_df.loc[~edited_df.index.isin(original_indices)].drop(columns=['Delete'])
+
                     df_updated = df_original.copy()
-                    df_updated.update(edited_df.drop(columns=['Delete']))
+                    # Apply edits to existing rows
+                    df_updated.update(existing_edited)
+
+                    # Append new rows with defaults filled in
+                    if not new_rows.empty:
+                        next_id = int(df_updated['#'].max()) + 1
+                        new_records = []
+                        for _, row in new_rows.iterrows():
+                            if pd.isna(row.get('TASK')) or str(row.get('TASK', '')).strip() == '':
+                                continue  # skip completely empty rows
+                            record = {col: None for col in df_original.columns}
+                            record['#'] = next_id
+                            record['PLANNER BUCKET'] = selected_bucket
+                            record['Fiscal Year'] = selected_year
+                            record['PROGRESS'] = row.get('PROGRESS') or 'NOT STARTED'
+                            record['TASK'] = row.get('TASK')
+                            record['ASSIGNMENT TITLE'] = row.get('ASSIGNMENT TITLE')
+                            record['SEMESTER'] = row.get('SEMESTER')
+                            record['AUDIENCE'] = row.get('AUDIENCE')
+                            record['START'] = pd.to_datetime(row.get('START'), errors='coerce')
+                            record['END'] = pd.to_datetime(row.get('END'), errors='coerce')
+                            new_records.append(record)
+                            next_id += 1
+                        if new_records:
+                            df_updated = pd.concat([df_updated, pd.DataFrame(new_records)], ignore_index=True)
+
                     if data_manager.save_and_log_changes(df_original, df_updated):
                         st.success("Changes saved and logged successfully!")
                         st.rerun()
@@ -362,8 +417,6 @@ if df_original is not None:
                 st.success(f"Successfully duplicated and logged {len(duplicated_tasks)} tasks to {data_manager.format_fy(new_fy)}!")
                 st.balloons()
                 st.rerun()
-    else:
-        st.warning("No tasks found for the selected Planner Bucket and Fiscal Year.")
 else:
     st.warning("Could not load data.")
 
