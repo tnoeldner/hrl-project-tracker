@@ -139,6 +139,7 @@ else:
             st.Page("pages/09_Add_a_New_Task.py", title="Add a New Task", icon="➕"),
             st.Page("pages/10_Bulk_Edit_and_Duplicate.py", title="Bulk Edit & Duplicate", icon="⚙️"),
             st.Page("pages/06_Three_Year_Task_View.py", title="Three Year Task Manager", icon="📆"),
+            st.Page("pages/18_Year_Rollover_Wizard.py", title="Year Rollover Wizard", icon="🔄"),
         ],
         "Help": [
             st.Page("pages/13_End_User_Manual.py", title="End User Manual", icon="📖"),
