@@ -153,6 +153,7 @@ else:
             st.Page("pages/15_Admin_Dashboard.py", title="Admin Dashboard", icon="🛡️"),
             st.Page("pages/12_User_Settings.py", title="User Settings", icon="🔧"),
             st.Page("pages/17_Admin_Presets_Overview.py", title="Presets Overview", icon="📊"),
+            st.Page("pages/19_Task_Integrity_Audit.py", title="Task Integrity Audit", icon="🔎"),
         ]
 
     pg = st.navigation(pages)

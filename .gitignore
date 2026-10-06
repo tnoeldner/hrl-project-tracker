@@ -28,4 +28,3 @@ Thumbs.db
 *.user
 *.userosscache
 *.sln.docstates
-.streamlit/secrets.toml
