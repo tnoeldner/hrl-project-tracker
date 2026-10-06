@@ -205,8 +205,9 @@ st.write(
 if semester_inference_mask.any():
     projection_df = tasks_df.loc[
         semester_inference_mask,
-        [column for column in ["#", "Fiscal Year", "SEMESTER", "TASK", "PLANNER BUCKET", "START"] if column in tasks_df.columns],
+        [column for column in ["#", "series_id", "Fiscal Year", "SEMESTER", "TASK", "PLANNER BUCKET", "START"] if column in tasks_df.columns],
     ].copy()
+    projection_df.rename(columns={"#": "Occurrence ID", "series_id": "Series ID"}, inplace=True)
     projection_df["Proposed Semester"] = proposed_semesters.loc[semester_inference_mask]
     projection_df["Projection Status"] = "Review task meaning before assigning semester"
     projection_df.loc[semester_key_conflicts, "Projection Status"] = "Review: conflicts if date suggestion is accepted"
