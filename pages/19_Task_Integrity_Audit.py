@@ -145,7 +145,6 @@ if projected_complete_mask.any():
         .shape[0]
     )
 
-semester_safe_to_fill = semester_inference_mask & projected_complete_mask & ~projected_duplicate_mask
 semester_key_conflicts = semester_inference_mask & projected_duplicate_mask
 valid_start_mask = tasks_df["START"].map(
     lambda value: pd.notna(pd.to_datetime(value, errors="coerce"))
@@ -180,16 +179,18 @@ metric_columns[3].metric("Complete duplicate occurrence keys", duplicate_key_gro
 
 st.subheader("Semester Projection")
 st.caption(
-    "Proposed Semester uses START only: Fall Aug 20-Dec 20, Spring Jan 5-May 14, and Summer May 15-Aug 7. "
+    "Date windows are suggestions, not authoritative semester assignments. A June 10 start can be Fall preparation, "
+    "for example bookstore charging opening for the upcoming term. Confirm the task's intended academic period. "
     "The stored Fiscal Year is preserved; it is not derived from START because the task may begin before its FY."
 )
 projection_columns = st.columns(4)
-projection_columns[0].metric("Can fill without key conflict", int(semester_safe_to_fill.sum()))
+projection_columns[0].metric("Date-window suggestions to review", int(semester_inference_mask.sum()))
 projection_columns[1].metric("Held for duplicate-key review", int(semester_key_conflicts.sum()))
 projection_columns[2].metric("Start date in a term gap", int(semester_start_gaps.sum()))
 projection_columns[3].metric("No valid start date", int(semester_no_valid_start.sum()))
 st.write(
-    f"Projected complete-key conflicts: {projected_duplicate_groups} groups / "
+    f"If every date-window suggestion were accepted, projected complete-key conflicts would be "
+    f"{projected_duplicate_groups} groups / "
     f"{projected_duplicate_rows} rows. Existing semester values that disagree with START: "
     f"{int(existing_semester_conflicts.sum())}. Missing Fiscal Year values are left for review: "
     f"{missing_by_field['Fiscal Year']}."
@@ -201,8 +202,8 @@ if semester_inference_mask.any():
         [column for column in ["#", "Fiscal Year", "SEMESTER", "TASK", "PLANNER BUCKET", "START"] if column in tasks_df.columns],
     ].copy()
     projection_df["Proposed Semester"] = proposed_semesters.loc[semester_inference_mask]
-    projection_df["Projection Status"] = "Hold: duplicate occurrence key"
-    projection_df.loc[semester_safe_to_fill, "Projection Status"] = "Ready: unique occurrence key"
+    projection_df["Projection Status"] = "Review task meaning before assigning semester"
+    projection_df.loc[semester_key_conflicts, "Projection Status"] = "Review: conflicts if date suggestion is accepted"
     incomplete_projection = semester_inference_mask & ~projected_complete_mask
     projection_df.loc[incomplete_projection, "Projection Status"] = "Hold: missing identity field"
     st.dataframe(projection_df, hide_index=True, use_container_width=True)
