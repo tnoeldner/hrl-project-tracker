@@ -96,6 +96,11 @@ if missing_columns:
 normalized_ids = tasks_df[series_col].map(_normalize_id)
 id_counts = Counter(value for value in normalized_ids if value)
 reused_ids = {value for value, count in id_counts.items() if count > 1}
+normalized_series_ids = (
+    tasks_df["series_id"].map(_normalize_id)
+    if "series_id" in tasks_df.columns
+    else pd.Series("", index=tasks_df.index)
+)
 
 years_by_id = defaultdict(set)
 id_year_counts = Counter()
@@ -171,11 +176,12 @@ if comments_df is not None and "task_id" in comments_df.columns and reused_ids:
     )
 
 st.subheader("Summary")
-metric_columns = st.columns(4)
+metric_columns = st.columns(5)
 metric_columns[0].metric("Task rows", len(tasks_df))
 metric_columns[1].metric("Series numbers reused across years", cross_year_series)
 metric_columns[2].metric("Number + year collisions", len(same_year_id_groups))
 metric_columns[3].metric("Complete duplicate occurrence keys", duplicate_key_groups)
+metric_columns[4].metric("Rows with Series ID", int(normalized_series_ids.ne("").sum()))
 
 st.subheader("Semester Projection")
 st.caption(
@@ -240,13 +246,14 @@ st.caption(
 if "Delete" in tasks_df.columns:
     st.warning("The stored tasks table includes a `Delete` column. It is reported here but not removed.")
 
-issue_mask = normalized_ids.isin(reused_ids) | ~complete_key_mask | duplicate_key_mask
+issue_mask = normalized_ids.isin(reused_ids) | normalized_series_ids.ne("") | ~complete_key_mask | duplicate_key_mask
 detail_columns = [
-    column for column in ["#", "Fiscal Year", "SEMESTER", "TASK", "PLANNER BUCKET", "START", "END"]
+    column for column in ["#", "series_id", "Fiscal Year", "SEMESTER", "TASK", "PLANNER BUCKET", "START", "END"]
     if column in tasks_df.columns
 ]
 issues_df = tasks_df.loc[issue_mask, detail_columns].copy()
 if not issues_df.empty:
+    issues_df.rename(columns={"#": "Occurrence ID", "series_id": "Series ID"}, inplace=True)
     st.subheader("Rows to review")
     st.dataframe(issues_df, hide_index=True, use_container_width=True)
     st.download_button(
