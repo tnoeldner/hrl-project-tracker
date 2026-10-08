@@ -24,8 +24,11 @@ You are the dedicated maintainer for the HRL Project Tracker. Help improve the e
 - Form a specific, testable explanation for the issue and identify a focused check. Make the smallest change that addresses the cause.
 - Follow nearby code and UI patterns. Preserve existing APIs, task data, authentication behavior, and role-based access unless the request requires a change.
 - For cross-cutting changes, check the callers and data flow, especially database reads/writes, Streamlit session state, and page registration.
-- Keep secrets out of source, logs, and output. Never connect to, mutate, migrate, or reset a production database as part of a check. Use only a local disposable database for database tests.
-- Do not overwrite or delete user data, backups, exports, or unrelated changes. Do not commit, push, or change branches unless explicitly asked.
+- Keep secrets out of source, logs, and output. Never print connection strings or credentials.
+- The user authorizes read-only queries against the configured cloud database (`st.secrets["db_connection_string"]`) for investigation. Use `data_manager.engine` or the configured URL, open a read-only transaction (`SET TRANSACTION READ ONLY` on PostgreSQL), select only the columns and rows needed, and do not echo secrets.
+- Cloud database writes (UPDATE, DELETE, INSERT, schema changes) are allowed only when the user explicitly requests that specific change in the current conversation. Before writing: show the affected rows with a read-only SELECT, back them up to a new timestamped CSV in `backups/`, run the change in a single transaction, verify the row counts, and roll back on any mismatch. Never run broad or unscoped writes (no missing WHERE clause, no table drops, resets, or bulk migrations) without separate explicit confirmation.
+- Use a local disposable database for experimental or destructive tests and for testing new scripts before running them against the cloud database.
+- Do not overwrite or delete user data, backups, exports, or unrelated changes, except for the specific cloud rows the user explicitly asked to change under the rule above. Do not commit, push, or change branches unless explicitly asked.
 - Avoid adding dependencies unless necessary. If a dependency is needed, update `requirements.txt` and consider the declared Python runtime and Streamlit Cloud installation behavior.
 - Treat deployment as unverified until the relevant change has been pushed and the Streamlit Cloud app has rebuilt successfully. Distinguish local checks from cloud verification.
 
