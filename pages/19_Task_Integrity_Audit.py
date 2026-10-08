@@ -265,3 +265,136 @@ if not issues_df.empty:
     )
 else:
     st.success("No reused numbers, incomplete proposed keys, or duplicate occurrence keys found.")
+
+st.markdown("---")
+st.subheader("Series Migration Plan")
+st.caption("Read-only proposal for review. This page does not modify task data or archive rows.")
+
+plan_pairs = {}
+legacy_pairs = defaultdict(set)
+series_pairs = defaultdict(set)
+rows_by_pair = defaultdict(list)
+for row_index, task_row in tasks_df.iterrows():
+    task_key = _normalize(task_row.get("TASK"))
+    bucket_key = " ".join(_normalize(task_row.get("PLANNER BUCKET")).split())
+    if not task_key or not bucket_key:
+        plan_pairs[row_index] = None
+        continue
+    pair = (task_key, bucket_key)
+    plan_pairs[row_index] = pair
+    rows_by_pair[pair].append(row_index)
+    if normalized_ids.loc[row_index]:
+        legacy_pairs[normalized_ids.loc[row_index]].add(pair)
+    if normalized_series_ids.loc[row_index]:
+        series_pairs[normalized_series_ids.loc[row_index]].add(pair)
+
+used_numbers = {value for value in normalized_ids if value}
+used_series = {value for value in normalized_series_ids if value} | used_numbers
+numeric_values = [int(value) for value in used_series if value.isdigit()]
+next_series_id = max(numeric_values, default=0) + 1
+proposed_series = {}
+series_review = {}
+for pair, row_indices in rows_by_pair.items():
+    existing = {normalized_series_ids.loc[index] for index in row_indices if normalized_series_ids.loc[index]}
+    if len(existing) > 1:
+        proposed_series[pair] = ""
+        series_review[pair] = "Review: multiple Series IDs"
+    elif existing:
+        series_id = next(iter(existing))
+        proposed_series[pair] = series_id
+        series_review[pair] = "Review: Series ID spans other Task/Bucket pairs" if series_pairs[series_id] != {pair} else "Keep existing Series ID"
+    else:
+        reusable = {
+            normalized_ids.loc[index]
+            for index in row_indices
+            if normalized_ids.loc[index] and legacy_pairs[normalized_ids.loc[index]] == {pair}
+            and series_pairs[normalized_ids.loc[index]] in (set(), {pair})
+        }
+        if len(reusable) == 1:
+            proposed_series[pair] = next(iter(reusable))
+            series_review[pair] = "Preserve unambiguous legacy number as Series ID"
+        else:
+            while str(next_series_id) in used_series:
+                next_series_id += 1
+            proposed_series[pair] = str(next_series_id)
+            used_series.add(str(next_series_id))
+            next_series_id += 1
+            series_review[pair] = "Propose new Series ID"
+
+comments_by_id = Counter()
+if comments_df is not None and "task_id" in comments_df.columns:
+    comments_by_id = Counter(comments_df["task_id"].map(_normalize_id))
+id_groups = defaultdict(list)
+for row_index, occurrence_id in normalized_ids.items():
+    if occurrence_id:
+        id_groups[occurrence_id].append(row_index)
+
+next_occurrence_id = max(
+    [int(value) for value in normalized_ids if value.isdigit()] or [0]
+) + 1
+proposed_occurrence = {}
+occurrence_review = {}
+for occurrence_id, row_indices in id_groups.items():
+    if len(row_indices) == 1:
+        proposed_occurrence[row_indices[0]] = occurrence_id
+        occurrence_review[row_indices[0]] = "Keep occurrence ID"
+    elif comments_by_id[occurrence_id]:
+        for row_index in row_indices:
+            proposed_occurrence[row_index] = ""
+            occurrence_review[row_index] = "Hold: map comments before splitting ID"
+    else:
+        ordered = sorted(row_indices, key=lambda index: (_normalize(tasks_df.at[index, "Fiscal Year"]), index))
+        for position, row_index in enumerate(ordered):
+            if position == 0:
+                proposed_occurrence[row_index] = occurrence_id
+                occurrence_review[row_index] = "Keep legacy ID on first occurrence"
+            else:
+                proposed_occurrence[row_index] = str(next_occurrence_id)
+                occurrence_review[row_index] = "Propose unique occurrence ID"
+                next_occurrence_id += 1
+for row_index in tasks_df.index:
+    if row_index not in proposed_occurrence:
+        proposed_occurrence[row_index] = ""
+        occurrence_review[row_index] = "Hold: missing occurrence ID"
+
+plan_rows = []
+for row_index, task_row in tasks_df.iterrows():
+    pair = plan_pairs[row_index]
+    series_proposal = proposed_series.get(pair, "") if pair else ""
+    series_status = series_review.get(pair, "Hold: missing Task or Planner Bucket") if pair else "Hold: missing Task or Planner Bucket"
+    key = (
+        _normalize(task_row.get("TASK")),
+        " ".join(_normalize(task_row.get("PLANNER BUCKET")).split()),
+        _normalize(task_row.get("SEMESTER")),
+        _normalize(task_row.get("Fiscal Year")),
+    )
+    if not all(key):
+        key_status = "Review: incomplete occurrence key"
+    elif duplicate_key_mask.loc[row_index]:
+        key_status = "Review: duplicate occurrence key"
+    else:
+        key_status = "Occurrence key clear"
+    occurrence_status = occurrence_review[row_index]
+    status_parts = [occurrence_status, series_status, key_status]
+    plan_rows.append({
+        "Current Occurrence ID": task_row.get("#"),
+        "Proposed Occurrence ID": proposed_occurrence[row_index],
+        "Current Series ID": task_row.get("series_id", ""),
+        "Proposed Series ID": series_proposal,
+        "Stored FY": task_row.get("Fiscal Year"),
+        "Semester": task_row.get("SEMESTER", ""),
+        "Task": task_row.get("TASK", ""),
+        "Planner Bucket": task_row.get("PLANNER BUCKET", ""),
+        "Comments on Current ID": comments_by_id[normalized_ids.loc[row_index]],
+        "Review Status": "; ".join(status_parts),
+    })
+
+migration_plan_df = pd.DataFrame(plan_rows)
+st.caption("Review the complete proposal in the CSV. Series suggestions use exact normalized Task + Planner Bucket; similar wording is not auto-merged.")
+st.download_button(
+    "Download series migration plan CSV",
+    data=migration_plan_df.to_csv(index=False).encode("utf-8"),
+    file_name="series_occurrence_migration_plan.csv",
+    mime="text/csv",
+)
+st.dataframe(migration_plan_df, hide_index=True, use_container_width=True)
